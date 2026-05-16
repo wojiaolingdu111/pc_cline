@@ -1,6 +1,6 @@
 import { MongoClient } from 'mongodb';
 
-const URI = process.env.MONGODB_URI;
+const URI = process.env.pc_clinet_MONGODB_URI || process.env.MONGODB_URI;
 const DB_NAME = process.env.MONGODB_DB || 'pc_clinet';
 
 let cached = null;
@@ -9,7 +9,7 @@ export async function connectToDatabase() {
   if (cached) return cached;
 
   if (!URI) {
-    throw new Error('MONGODB_URI 未配置');
+    throw new Error('MongoDB 连接串未配置');
   }
 
   const client = new MongoClient(URI);
