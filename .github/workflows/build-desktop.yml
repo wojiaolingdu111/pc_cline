@@ -21,6 +21,9 @@ jobs:
           - os: macos-latest
             bundles: dmg,app
             artifact_name: macos-bundles
+          - os: ubuntu-latest
+            bundles: deb,rpm,appimage
+            artifact_name: linux-bundles
 
     runs-on: ${{ matrix.os }}
 
@@ -46,6 +49,12 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install Linux Tauri deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev
+
       - name: Install frontend deps
         run: pnpm install --frozen-lockfile
 
@@ -60,6 +69,7 @@ jobs:
           python -m PyInstaller aitoreder-backend.spec --clean --distpath ../src-tauri/binaries
 
       - name: Verify sidecar resources
+        shell: bash
         run: |
           ls -la src-tauri/binaries
           ls -la src-tauri/binaries/aitoreder-backend
@@ -83,4 +93,7 @@ jobs:
             src-tauri/target/release/bundle/**/*.msi
             src-tauri/target/release/bundle/**/*.dmg
             src-tauri/target/release/bundle/**/*.app.tar.gz
+            src-tauri/target/release/bundle/**/*.deb
+            src-tauri/target/release/bundle/**/*.rpm
+            src-tauri/target/release/bundle/**/*.AppImage
           fail_on_unmatched_files: false

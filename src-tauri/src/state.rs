@@ -24,7 +24,7 @@ impl AppState {
         let app_data_dir = app_handle
             .path()
             .app_data_dir()
-            .unwrap_or_else(|| PathBuf::from("app-data"));
+            .unwrap_or_else(|_| PathBuf::from("app-data"));
         let directories = AppDirectories::new(app_data_dir)?;
 
         let startup = ensure_python_backend_running(app_handle);

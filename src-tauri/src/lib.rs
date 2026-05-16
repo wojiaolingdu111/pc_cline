@@ -5,6 +5,7 @@ mod state;
 
 use anyhow::Result;
 use state::AppState;
+use tauri::Manager;
 
 fn build_app_state(app_handle: &tauri::AppHandle) -> Result<AppState> {
     AppState::new(app_handle)
