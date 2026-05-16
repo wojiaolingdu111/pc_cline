@@ -2,8 +2,12 @@
   "name": "ai-toreder",
   "functions": {
     "api/license/*.js": {
-      "memory": 128,
-      "maxDuration": 10
+      "memory": 256,
+      "maxDuration": 15
+    },
+    "api/admin/*.js": {
+      "memory": 256,
+      "maxDuration": 15
     }
   }
 }

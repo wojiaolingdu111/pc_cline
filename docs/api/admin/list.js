@@ -1,4 +1,4 @@
-const { withAuth } = await import('./lib.js');
+const { withAuth, loadKeys } = await import('./lib.js');
 
 export default async function handler(req, res) {
   if (!(await withAuth(req, res))) return;
@@ -19,14 +19,4 @@ export default async function handler(req, res) {
     console.error('list error:', error);
     return res.status(500).json({ error: '服务器内部错误' });
   }
-}
-
-const KV_KEY = 'license:keys';
-
-async function loadKeys() {
-  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-    const { get } = await import('@vercel/kv');
-    return (await get(KV_KEY)) || {};
-  }
-  return {};
 }

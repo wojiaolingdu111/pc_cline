@@ -1,11 +1,7 @@
 // Vercel API: 验证授权码
-// 支持 Vercel KV (需配置) 和 环境变量 两种存储方式
-//
-// 环境变量配置:
-//   LICENSE_KEYS={"LICENSE-XXXX": {"max_activations":3,"expires_at":null}}
-// 或使用 Vercel KV (自动检测)
+// 支持 MongoDB 和 环境变量(LICENSE_KEYS) 两种存储方式
 
-const KV_KEY = 'license:keys';
+import { getCollection } from '../lib/mongo.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -18,8 +14,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const keys = await loadLicenseKeys();
-    const record = keys[license_key];
+    const record = await loadLicenseKey(license_key);
 
     if (!record) {
       return res.status(200).json({ valid: false, message: '授权码无效' });
@@ -45,21 +40,23 @@ export default async function handler(req, res) {
   }
 }
 
-async function loadLicenseKeys() {
-  // 优先使用 Vercel KV
-  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-    const { get } = await import('@vercel/kv');
-    const data = await get(KV_KEY);
-    if (data) return data;
+async function loadLicenseKey(code) {
+  // 优先使用 MongoDB
+  try {
+    const col = await getCollection();
+    const doc = await col.findOne({ _id: code });
+    if (doc) return doc;
+  } catch (e) {
+    console.warn('MongoDB 不可用, 回退到环境变量:', e.message);
   }
 
   // 回退到环境变量
   if (process.env.LICENSE_KEYS) {
     try {
-      return JSON.parse(process.env.LICENSE_KEYS);
+      const keys = JSON.parse(process.env.LICENSE_KEYS);
+      return keys[code] || null;
     } catch { /* ignore */ }
   }
 
-  // 默认空
-  return {};
+  return null;
 }

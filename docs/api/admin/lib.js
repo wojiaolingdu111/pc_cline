@@ -1,4 +1,4 @@
-const KV_KEY = 'license:keys';
+import { getCollection } from '../lib/mongo.js';
 
 export async function withAuth(req, res) {
   const password = process.env.ADMIN_PASSWORD;
@@ -16,16 +16,21 @@ export async function withAuth(req, res) {
 }
 
 export async function loadKeys() {
-  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-    const { get } = await import('@vercel/kv');
-    return (await get(KV_KEY)) || {};
+  const col = await getCollection();
+  const docs = await col.find({}).toArray();
+  const map = {};
+  for (const doc of docs) {
+    const { _id, ...rest } = doc;
+    map[_id] = { ...rest };
   }
-  return {};
+  return map;
 }
 
 export async function saveKeys(keys) {
-  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-    const { set } = await import('@vercel/kv');
-    await set(KV_KEY, keys);
+  const col = await getCollection();
+  await col.deleteMany({});
+  if (Object.keys(keys).length > 0) {
+    const docs = Object.entries(keys).map(([code, data]) => ({ _id: code, ...data }));
+    await col.insertMany(docs);
   }
 }
