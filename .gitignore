@@ -17,3 +17,5 @@ app-data/
 .env.keys
 
 .claude
+docs/node_modules/
+.vercel
