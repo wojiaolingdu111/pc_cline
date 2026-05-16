@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI ToReder — 本地语音合成工作台</title>
+  <meta name="description" content="基于 Tauri + Rust + Python 的桌面端本地 TTS 工作台，支持语音合成、声音克隆，纯本地运行，保护数据隐私。">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f4f6fa;
+      --surface: rgba(255,255,255,0.88);
+      --text: #14213d;
+      --text-secondary: rgba(20,33,61,0.72);
+      --accent: #ff9f1c;
+      --accent-gradient: linear-gradient(135deg, #ff9f1c, #ffbf69);
+      --teal: #0d9488;
+      --teal-light: rgba(13,148,136,0.10);
+      --radius: 24px;
+      --shadow: 0 20px 50px rgba(20,33,61,0.08);
+      --max-width: 1120px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container { max-width: var(--max-width); margin: 0 auto; padding: 0 24px; }
+
+    /* --- Header --- */
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 20px 0; border-bottom: 1px solid rgba(20,33,61,0.06);
+    }
+    .logo { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; }
+    .logo span { color: var(--teal); }
+    nav { display: flex; gap: 24px; align-items: center; }
+    nav a { text-decoration: none; color: var(--text-secondary); font-weight: 600; font-size: 0.9rem; transition: color .2s; }
+    nav a:hover { color: var(--text); }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 24px; border-radius: 999px; font-weight: 700;
+      text-decoration: none; font-size: .95rem; transition: all .2s; cursor: pointer; border: none;
+    }
+    .btn-primary { background: var(--accent-gradient); color: #14213d; box-shadow: 0 12px 30px rgba(255,159,28,0.28); }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 36px rgba(255,159,28,0.35); }
+    .btn-outline { border: 1.5px solid rgba(20,33,61,0.15); color: var(--text); background: transparent; }
+    .btn-outline:hover { border-color: var(--text); }
+    .btn-teal { background: linear-gradient(135deg, #14b8a6, #6ee7b7); color: #083344; box-shadow: 0 12px 30px rgba(20,184,166,0.25); }
+    .btn-teal:hover { transform: translateY(-2px); box-shadow: 0 16px 36px rgba(20,184,166,0.32); }
+    .btn-sm { padding: 8px 18px; font-size: .85rem; }
+
+    /* --- Hero --- */
+    .hero {
+      text-align: center; padding: 80px 0 60px;
+    }
+    .hero h1 {
+      font-size: clamp(2.8rem, 6vw, 5.2rem); font-weight: 900; line-height: 1.05;
+      letter-spacing: -0.03em; margin-bottom: 20px;
+    }
+    .hero h1 span { background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hero p {
+      font-size: 1.2rem; color: var(--text-secondary); max-width: 640px;
+      margin: 0 auto 36px;
+    }
+    .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 999px; background: var(--teal-light);
+      color: var(--teal); font-size: .85rem; font-weight: 700; margin-bottom: 24px;
+    }
+
+    /* --- Features --- */
+    .section { padding: 60px 0; }
+    .section-title { text-align: center; font-size: 2rem; font-weight: 800; margin-bottom: 12px; }
+    .section-subtitle { text-align: center; color: var(--text-secondary); margin-bottom: 48px; font-size: 1.05rem; }
+
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    .feature-card {
+      padding: 32px; border-radius: var(--radius); background: var(--surface);
+      box-shadow: var(--shadow); backdrop-filter: blur(12px);
+    }
+    .feature-icon { width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin-bottom: 18px; }
+    .feature-card h3 { font-size: 1.15rem; margin-bottom: 8px; }
+    .feature-card p { color: var(--text-secondary); font-size: .95rem; }
+
+    /* --- Tech Stack --- */
+    .tech-grid { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .tech-chip {
+      padding: 10px 22px; border-radius: 999px; background: var(--surface);
+      box-shadow: 0 4px 12px rgba(20,33,61,0.06); font-weight: 700; font-size: .95rem;
+    }
+
+    /* --- Download --- */
+    .download-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+    .download-card {
+      padding: 32px; border-radius: var(--radius); background: var(--surface);
+      box-shadow: var(--shadow); text-align: center;
+    }
+    .download-card h3 { font-size: 1.2rem; margin-bottom: 6px; }
+    .download-card p { color: var(--text-secondary); font-size: .9rem; margin-bottom: 20px; }
+    .download-card .os-icon { font-size: 2.4rem; margin-bottom: 14px; }
+
+    /* --- Footer --- */
+    footer {
+      text-align: center; padding: 40px 0; color: var(--text-secondary);
+      font-size: .85rem; border-top: 1px solid rgba(20,33,61,0.06);
+    }
+    footer a { color: var(--teal); text-decoration: none; }
+
+    /* --- Arch diagram --- */
+    .arch-diagram {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      flex-wrap: wrap; padding: 36px; border-radius: var(--radius);
+      background: var(--surface); box-shadow: var(--shadow);
+      font-weight: 700; font-size: .9rem;
+    }
+    .arch-box {
+      padding: 16px 24px; border-radius: 14px; text-align: center; min-width: 100px;
+    }
+    .arch-box.frontend { background: #e0f2fe; color: #0369a1; }
+    .arch-box.rust { background: #fef3c7; color: #92400e; }
+    .arch-box.python { background: #d1fae5; color: #065f46; }
+    .arch-arrow { font-size: 1.3rem; color: var(--text-secondary); }
+
+    /* --- Responsive --- */
+    @media (max-width: 768px) {
+      header { flex-direction: column; gap: 14px; }
+      nav { flex-wrap: wrap; justify-content: center; }
+      .hero { padding: 48px 0 36px; }
+      .section { padding: 36px 0; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="container">
+  <div class="logo">AI <span>ToReder</span></div>
+  <nav>
+    <a href="#features">功能特性</a>
+    <a href="#download">下载</a>
+    <a href="https://github.com/wojiaolingdu111/pc_clinet" target="_blank">GitHub</a>
+  </nav>
+</header>
+
+<section class="hero container">
+  <div class="hero-badge">🔊 纯本地运行 · 保护数据隐私</div>
+  <h1>AI <span>ToReder</span></h1>
+  <p>基于 Tauri + Rust + Python 的桌面端本地 TTS 工作台。<br>语音合成、声音克隆，一切都在本地运行。</p>
+  <div class="hero-actions">
+    <a href="#download" class="btn btn-primary">↓ 下载安装包</a>
+    <a href="https://github.com/wojiaolingdu111/pc_clinet" target="_blank" class="btn btn-outline">GitHub 仓库</a>
+  </div>
+</section>
+
+<section id="features" class="section container">
+  <h2 class="section-title">功能特性</h2>
+  <p class="section-subtitle">开箱即用的本地语音能力</p>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon" style="background:#e0f2fe;">🎙️</div>
+      <h3>TTS 语音合成</h3>
+      <p>基于 Coqui XTTS v2 模型，支持中文、英文等多语言合成，可调节语速，生成自然流畅的语音。</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:#fef3c7;">🧬</div>
+      <h3>声音克隆</h3>
+      <p>上传 6 秒以上的参考音频即可克隆声音，用你的音色朗读任意文本，支持多音色管理。</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:#d1fae5;">🖥️</div>
+      <h3>跨平台桌面应用</h3>
+      <p>基于 Tauri 2 构建，原生性能、低内存占用。支持 Windows、macOS、Linux 三大平台。</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:#fce7f3;">🔒</div>
+      <h3>纯本地运行</h3>
+      <p>所有计算在本地完成，无需联网，不需要任何 API Key，你的数据不会离开你的电脑。</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:#e0e7ff;">📦</div>
+      <h3>一键安装</h3>
+      <p>Python 引擎 + 模型推理全部打包为独立 sidecar，安装后开箱即用，无需额外配置环境。</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon" style="background:#f5f5dc;">🎯</div>
+      <h3>任务管理</h3>
+      <p>内置任务队列和音频播放器，支持批量生成、导出 WAV 音频文件，方便后续使用。</p>
+    </div>
+  </div>
+</section>
+
+<section class="section container">
+  <h2 class="section-title">技术架构</h2>
+  <p class="section-subtitle">三层架构，各司其职</p>
+  <div class="arch-diagram">
+    <div class="arch-box frontend">Vue 3 前端</div>
+    <span class="arch-arrow">→</span>
+    <div class="arch-box rust">Tauri / Rust</div>
+    <span class="arch-arrow">→</span>
+    <div class="arch-box python">Python FastAPI<br>+ Coqui TTS</div>
+  </div>
+  <div style="text-align:center;margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+    <span class="tech-chip">Vue 3</span>
+    <span class="tech-chip">TypeScript</span>
+    <span class="tech-chip">Tauri 2</span>
+    <span class="tech-chip">Rust</span>
+    <span class="tech-chip">Python 3.11</span>
+    <span class="tech-chip">FastAPI</span>
+    <span class="tech-chip">Coqui XTTS v2</span>
+    <span class="tech-chip">PyTorch</span>
+    <span class="tech-chip">Pinia</span>
+    <span class="tech-chip">Vite</span>
+  </div>
+</section>
+
+<section id="download" class="section container">
+  <h2 class="section-title">下载</h2>
+  <p class="section-subtitle">选择你的平台，下载安装包开箱即用</p>
+
+  <div class="download-grid">
+    <div class="download-card">
+      <div class="os-icon">🪟</div>
+      <h3>Windows</h3>
+      <p>Windows 10 / 11 64-bit</p>
+      <a href="https://github.com/wojiaolingdu111/pc_clinet/releases" target="_blank" class="btn btn-primary btn-sm">下载 .exe</a>
+    </div>
+    <div class="download-card">
+      <div class="os-icon">🍎</div>
+      <h3>macOS</h3>
+      <p>macOS 12+ Intel / Apple Silicon</p>
+      <a href="https://github.com/wojiaolingdu111/pc_clinet/releases" target="_blank" class="btn btn-primary btn-sm">下载 .dmg</a>
+    </div>
+    <div class="download-card">
+      <div class="os-icon">🐧</div>
+      <h3>Linux</h3>
+      <p>.deb / .rpm / AppImage</p>
+      <a href="https://github.com/wojiaolingdu111/pc_clinet/releases" target="_blank" class="btn btn-primary btn-sm">下载 .AppImage</a>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:32px;">
+    <p style="color:var(--text-secondary);margin-bottom:12px;">所有安装包均可在 GitHub Releases 页面获取</p>
+    <a href="https://github.com/wojiaolingdu111/pc_clinet/releases" target="_blank" class="btn btn-outline">查看所有版本 →</a>
+  </div>
+</section>
+
+<section class="section container">
+  <h2 class="section-title">快速开始</h2>
+  <p class="section-subtitle">下载安装后，三步开始使用</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;">
+    <div class="feature-card" style="text-align:center;">
+      <div style="font-size:2rem;font-weight:900;color:var(--teal);margin-bottom:8px;">1</div>
+      <h3>选择音色</h3>
+      <p>从内置的多种音色中选择，或上传音频克隆自己的声音</p>
+    </div>
+    <div class="feature-card" style="text-align:center;">
+      <div style="font-size:2rem;font-weight:900;color:var(--teal);margin-bottom:8px;">2</div>
+      <h3>输入文本</h3>
+      <p>输入要合成的文本，调整语速和语言</p>
+    </div>
+    <div class="feature-card" style="text-align:center;">
+      <div style="font-size:2rem;font-weight:900;color:var(--teal);margin-bottom:8px;">3</div>
+      <h3>生成语音</h3>
+      <p>点击生成，试听并导出 WAV 音频文件</p>
+    </div>
+  </div>
+</section>
+
+<footer class="container">
+  <p>
+    <a href="https://github.com/wojiaolingdu111/pc_clinet">AI ToReder</a> —
+    基于 Tauri + Rust + Python 构建 ·
+    <a href="https://github.com/wojiaolingdu111/pc_clinet/blob/master/LICENSE">MIT License</a>
+  </p>
+</footer>
+
+</body>
+</html>
