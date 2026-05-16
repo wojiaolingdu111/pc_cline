@@ -14,3 +14,6 @@ python-backend/services/__pycache__/
 
 src-tauri/target/
 app-data/
+.env.keys
+
+.claude
