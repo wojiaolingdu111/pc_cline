@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const TRIAL_DAYS: u64 = 7;
-pub const VERIFY_URL: &str = "https://ai-toreder.vercel.app/api/license/verify";
-pub const ACTIVATE_URL: &str = "https://ai-toreder.vercel.app/api/license/activate";
+pub const VERIFY_URL: &str = "https://pc-clinet-navy.vercel.app/api/license/verify";
+pub const ACTIVATE_URL: &str = "https://pc-clinet-navy.vercel.app/api/license/activate";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum LicenseStatus {

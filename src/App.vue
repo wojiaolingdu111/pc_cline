@@ -104,7 +104,7 @@ onMounted(() => { void bootstrap(); });
             {{ activating ? '验证中…' : '激活' }}
           </button>
         </div>
-        <p class="modal-footer">还未购买？<a href="https://ai-toreder.vercel.app" target="_blank">前往购买</a></p>
+        <p class="modal-footer">还未购买？<a href="https://pc-clinet-navy.vercel.app" target="_blank">前往购买</a></p>
       </div>
     </div>
 
