@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use tauri::State;
-
+use crate::license::{LicenseInfo, ACTIVATE_URL};
 use crate::python_service::{
     self, CloneVoicePayload, GenerateSpeechPayload, ServiceStatusResponse, VoiceProfile,
 };
@@ -142,4 +142,45 @@ pub async fn pick_audio_file() -> Option<String> {
     .await
     .ok()
     .flatten()
+}
+
+#[tauri::command]
+pub fn get_license_status(state: State<'_, AppState>) -> LicenseInfo {
+    state.license.get_info()
+}
+
+#[tauri::command]
+pub async fn activate_license(
+    key: String,
+    state: State<'_, AppState>,
+) -> Result<LicenseInfo, String> {
+    let machine_id = state.license.machine_id();
+
+    // 联网验证
+    let client = &state.client;
+    let resp = client
+        .post(ACTIVATE_URL)
+        .json(&serde_json::json!({ "license_key": key, "machine_id": machine_id }))
+        .send()
+        .await
+        .map_err(|e| format!("无法连接授权服务器: {}", e))?;
+
+    let result = resp
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("授权服务器响应异常: {}", e))?;
+
+    if result.get("valid").and_then(|v| v.as_bool()).unwrap_or(false) {
+        state
+            .license
+            .set_license_key(key)
+            .map_err(|e| format!("保存授权信息失败: {}", e))?;
+        Ok(state.license.get_info())
+    } else {
+        Err(result
+            .get("message")
+            .and_then(|m| m.as_str())
+            .unwrap_or("授权码无效")
+            .to_string())
+    }
 }

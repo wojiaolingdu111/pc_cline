@@ -11,12 +11,14 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 use crate::file_manager::AppDirectories;
+use crate::license::LicenseManager;
 
 pub struct AppState {
     pub directories: AppDirectories,
     pub client: Client,
     pub python_base_url: String,
     pub backend_token: Option<String>,
+    pub license: LicenseManager,
 }
 
 impl AppState {
@@ -27,6 +29,7 @@ impl AppState {
             .unwrap_or_else(|_| PathBuf::from("app-data"));
         let directories = AppDirectories::new(app_data_dir)?;
 
+        let license = LicenseManager::new(&app_data_dir);
         let startup = ensure_python_backend_running(app_handle);
 
         Ok(Self {
@@ -34,6 +37,7 @@ impl AppState {
             client: Client::new(),
             python_base_url: startup.base_url,
             backend_token: startup.token,
+            license,
         })
     }
 }

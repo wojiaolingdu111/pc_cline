@@ -1,5 +1,6 @@
 mod commands;
 mod file_manager;
+mod license;
 mod python_service;
 mod state;
 
@@ -26,6 +27,8 @@ pub fn run() {
             commands::delete_voice_profile,
             commands::get_service_status,
             commands::pick_audio_file,
+            commands::get_license_status,
+            commands::activate_license,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

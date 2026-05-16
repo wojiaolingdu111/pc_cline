@@ -50,6 +50,14 @@ export interface ServiceStatus {
   message: string;
 }
 
+export interface LicenseInfo {
+  status: 'Trial' | 'Active' | 'Expired';
+  trial_days_total: number;
+  trial_days_left: number;
+  license_key: string | null;
+  message: string;
+}
+
 interface PythonVoiceProfile {
   id: string;
   name: string;
@@ -287,6 +295,23 @@ export async function deleteVoiceProfile(voiceProfileId: string): Promise<void> 
   }
 
   await safeInvoke('delete_voice_profile', { voiceProfileId });
+}
+
+export async function getLicenseStatus(): Promise<LicenseInfo> {
+  if (!isTauriRuntime()) {
+    return {
+      status: 'Trial',
+      trial_days_total: 7,
+      trial_days_left: 7,
+      license_key: null,
+      message: '浏览器预览模式',
+    };
+  }
+  return safeInvoke<LicenseInfo>('get_license_status');
+}
+
+export async function activateLicense(key: string): Promise<LicenseInfo> {
+  return safeInvoke<LicenseInfo>('activate_license', { key });
 }
 
 export async function pickAudioFile(): Promise<string | null> {
