@@ -97,39 +97,39 @@
       </tbody>
     </table>
   </template>
-</div>
 
-<!-- 新增弹窗 -->
-<div v-if="showAdd" class="modal-overlay" @click.self="showAdd = false">
-  <div class="modal">
-    <h3>新增授权码</h3>
-    <input v-model="newCode" placeholder="授权码（留空自动生成）" />
-    <div class="row">
-      <input v-model.number="newMax" type="number" placeholder="最大激活数" />
-      <input v-model.number="newDays" type="number" placeholder="过期天数(0=永久)" />
-    </div>
-    <p v-if="addError" style="color:#8a1c28;font-size:.85rem;margin-bottom:8px">{{ addError }}</p>
-    <div class="btns">
-      <button class="btn btn-outline" @click="showAdd = false">取消</button>
-      <button class="btn btn-primary" @click="add">添加</button>
-    </div>
-  </div>
-</div>
-
-<!-- 设过期弹窗 -->
-<div v-if="expireTarget" class="modal-overlay" @click.self="expireTarget = null">
-  <div class="modal">
-    <h3>设置过期</h3>
-    <p style="margin-bottom:12px;color:rgba(20,33,61,.6)">{{ expireTarget }}</p>
-    <input v-model.number="expireDays" type="number" placeholder="过期天数（0=永久）" @keyup.enter="confirmExpire" />
-    <div class="btns">
-      <button class="btn btn-outline" @click="expireTarget = null">取消</button>
-      <button class="btn btn-primary" @click="confirmExpire">确定</button>
+  <!-- 新增弹窗 -->
+  <div v-if="showAdd" class="modal-overlay" @click.self="showAdd = false">
+    <div class="modal">
+      <h3>新增授权码</h3>
+      <input v-model="newCode" placeholder="授权码（留空自动生成）" />
+      <div class="row">
+        <input v-model.number="newMax" type="number" placeholder="最大激活数" />
+        <input v-model.number="newDays" type="number" placeholder="过期天数(0=永久)" />
+      </div>
+      <p v-if="addError" style="color:#8a1c28;font-size:.85rem;margin-bottom:8px">{{ addError }}</p>
+      <div class="btns">
+        <button class="btn btn-outline" @click="showAdd = false">取消</button>
+        <button class="btn btn-primary" @click="add">添加</button>
+      </div>
     </div>
   </div>
-</div>
 
-<div v-if="toast" class="toast">{{ toast }}</div>
+  <!-- 设过期弹窗 -->
+  <div v-if="expireTarget" class="modal-overlay" @click.self="expireTarget = null">
+    <div class="modal">
+      <h3>设置过期</h3>
+      <p style="margin-bottom:12px;color:rgba(20,33,61,.6)">{{ expireTarget }}</p>
+      <input v-model.number="expireDays" type="number" placeholder="过期天数（0=永久）" @keyup.enter="confirmExpire" />
+      <div class="btns">
+        <button class="btn btn-outline" @click="expireTarget = null">取消</button>
+        <button class="btn btn-primary" @click="confirmExpire">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="toast" class="toast">{{ toast }}</div>
+</div>
 
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script>
