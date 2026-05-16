@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI ToReder 授权管理</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f4f6fa;color:#14213d;padding:32px 24px}
+    .container{max-width:960px;margin:0 auto}
+    h1{font-size:1.6rem;margin-bottom:4px}
+    .sub{color:rgba(20,33,61,.6);margin-bottom:24px}
+
+    /* login */
+    .login-box{max-width:360px;margin:80px auto;padding:36px;background:#fff;border-radius:24px;box-shadow:0 20px 50px rgba(20,33,61,.08)}
+    .login-box h2{margin-bottom:16px}
+    .login-box input{width:100%;padding:12px 14px;border:1px solid rgba(20,33,61,.12);border-radius:12px;font-size:1rem;margin-bottom:12px}
+    .login-box input:focus{border-color:#ff9f1c;outline:none}
+    .login-box .error{color:#8a1c28;font-size:.9rem;margin-bottom:8px}
+
+    .bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:20px}
+    .bar .btn{padding:8px 16px;border-radius:10px;font-weight:700;cursor:pointer;border:none;font-size:.9rem}
+    .btn-primary{background:linear-gradient(135deg,#ff9f1c,#ffbf69);color:#14213d}
+    .btn-danger{background:#8a1c28;color:#fff}
+    .btn-outline{background:transparent;border:1px solid rgba(20,33,61,.15);color:#14213d}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .badge{display:inline-flex;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}
+    .badge-active{background:#d1fae5;color:#065f46}
+    .badge-expired{background:#fee2e2;color:#8a1c28}
+    .badge-used{background:#fef3c7;color:#92400e}
+    .badge-unused{background:#e0f2fe;color:#0369a1}
+
+    table{width:100%;border-collapse:collapse;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(20,33,61,.06)}
+    th,td{padding:12px 16px;text-align:left;font-size:.9rem}
+    th{background:rgba(20,33,61,.03);font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}
+    td{border-top:1px solid rgba(20,33,61,.04)}
+    .actions{display:flex;gap:6px}
+    .actions button{padding:4px 10px;border-radius:6px;border:1px solid rgba(20,33,61,.12);background:transparent;cursor:pointer;font-size:.8rem}
+    .actions button:hover{border-color:#ff9f1c}
+
+    /* modal */
+    .modal-overlay{position:fixed;inset:0;background:rgba(20,33,61,.4);display:flex;align-items:center;justify-content:center;z-index:100}
+    .modal{background:#fff;border-radius:20px;padding:28px;max-width:400px;width:90%;box-shadow:0 40px 80px rgba(20,33,61,.2)}
+    .modal h3{margin-bottom:12px}
+    .modal input,.modal select{width:100%;padding:10px 12px;border:1px solid rgba(20,33,61,.12);border-radius:10px;font-size:.95rem;margin-bottom:10px}
+    .modal input:focus{border-color:#ff9f1c;outline:none}
+    .modal .row{display:flex;gap:12px}
+    .modal .row>*{flex:1}
+    .modal .btns{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+    .empty{text-align:center;padding:40px;color:rgba(20,33,61,.5)}
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;background:#14213d;color:#fff;border-radius:12px;font-size:.9rem;z-index:200;animation:fadeIn .3s}
+    @keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+  </style>
+</head>
+<body>
+<div class="container" id="app">
+  <div v-if="!authed" class="login-box">
+    <h2>🔐 授权管理</h2>
+    <p class="sub">请输入管理员密码</p>
+    <input v-model="password" type="password" placeholder="密码" @keyup.enter="login" />
+    <p v-if="loginError" class="error">{{ loginError }}</p>
+    <button class="btn btn-primary" style="width:100%" @click="login">登录</button>
+  </div>
+
+  <template v-else>
+    <div style="display:flex;justify-content:space-between;align-items:start">
+      <div>
+        <h1>🔑 授权码管理</h1>
+        <p class="sub">共 {{ keys.length }} 个授权码</p>
+      </div>
+      <button class="btn btn-outline" @click="logout">退出</button>
+    </div>
+
+    <div class="bar">
+      <button class="btn btn-primary" @click="showAdd = true">+ 新增授权码</button>
+      <button class="btn btn-outline" :disabled="loading" @click="load">刷新</button>
+      <span v-if="loading" style="color:rgba(20,33,61,.5);font-size:.9rem">加载中…</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>授权码</th><th>状态</th><th>激活</th><th>绑定设备</th><th>过期</th><th></th></tr>
+      </thead>
+      <tbody>
+        <tr v-for="k in keys" :key="k.code">
+          <td style="font-family:monospace;font-weight:600">{{ k.code }}</td>
+          <td><span class="badge" :class="statusClass(k)">{{ statusText(k) }}</span></td>
+          <td>{{ k.activation_count }}/{{ k.max_activations }}</td>
+          <td style="font-size:.8rem;font-family:monospace">{{ k.machine_id ? k.machine_id.slice(0,10)+'…' : '—' }}</td>
+          <td style="font-size:.85rem">{{ k.expires_at ? new Date(k.expires_at).toLocaleDateString('zh-CN') : '永久' }}</td>
+          <td class="actions">
+            <button @click="setExpire(k.code)">设过期</button>
+            <button style="color:#8a1c28" @click="remove(k.code)">删除</button>
+          </td>
+        </tr>
+        <tr v-if="!keys.length"><td colspan="6" class="empty">还没有授权码</td></tr>
+      </tbody>
+    </table>
+  </template>
+</div>
+
+<!-- 新增弹窗 -->
+<div v-if="showAdd" class="modal-overlay" @click.self="showAdd = false">
+  <div class="modal">
+    <h3>新增授权码</h3>
+    <input v-model="newCode" placeholder="授权码（留空自动生成）" />
+    <div class="row">
+      <input v-model.number="newMax" type="number" placeholder="最大激活数" />
+      <input v-model.number="newDays" type="number" placeholder="过期天数(0=永久)" />
+    </div>
+    <p v-if="addError" style="color:#8a1c28;font-size:.85rem;margin-bottom:8px">{{ addError }}</p>
+    <div class="btns">
+      <button class="btn btn-outline" @click="showAdd = false">取消</button>
+      <button class="btn btn-primary" @click="add">添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 设过期弹窗 -->
+<div v-if="expireTarget" class="modal-overlay" @click.self="expireTarget = null">
+  <div class="modal">
+    <h3>设置过期</h3>
+    <p style="margin-bottom:12px;color:rgba(20,33,61,.6)">{{ expireTarget }}</p>
+    <input v-model.number="expireDays" type="number" placeholder="过期天数（0=永久）" @keyup.enter="confirmExpire" />
+    <div class="btns">
+      <button class="btn btn-outline" @click="expireTarget = null">取消</button>
+      <button class="btn btn-primary" @click="confirmExpire">确定</button>
+    </div>
+  </div>
+</div>
+
+<div v-if="toast" class="toast">{{ toast }}</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script>
+const API = '/api/admin';
+
+const app = Vue.createApp({
+  data() {
+    return {
+      authed: false,
+      password: '',
+      loginError: '',
+      keys: [],
+      loading: false,
+      showAdd: false,
+      newCode: '',
+      newMax: 1,
+      newDays: 0,
+      addError: '',
+      expireTarget: null,
+      expireDays: 30,
+      toast: '',
+    };
+  },
+  methods: {
+    async login() {
+      this.loginError = '';
+      try {
+        const r = await fetch(API + '/list', { headers: { Authorization: 'Bearer ' + this.password } });
+        if (!r.ok) throw new Error('密码错误');
+        this.authed = true;
+        this.keys = (await r.json()).keys;
+      } catch (e) {
+        this.loginError = e.message;
+      }
+    },
+    logout() { this.authed = false; this.password = ''; this.keys = []; },
+    async load() {
+      this.loading = true;
+      try {
+        const r = await fetch(API + '/list', { headers: { Authorization: 'Bearer ' + this.password } });
+        this.keys = (await r.json()).keys;
+      } finally { this.loading = false; }
+    },
+    async add() {
+      this.addError = '';
+      const code = this.newCode || 'LICENSE-' + Array.from({length:8},()=>Math.floor(Math.random()*16).toString(16).toUpperCase()).join('');
+      try {
+        const r = await fetch(API + '/add', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + this.password, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, max_activations: this.newMax, expires_in_days: this.newDays || undefined }),
+        });
+        if (!r.ok) { const d = await r.json(); throw new Error(d.error); }
+        this.showAdd = false;
+        this.newCode = '';
+        this.toast = '✅ 已添加 ' + code;
+        await this.load();
+        setTimeout(() => this.toast = '', 3000);
+      } catch (e) { this.addError = e.message; }
+    },
+    async remove(code) {
+      if (!confirm('确定删除 ' + code + '？')) return;
+      await fetch(API + '/remove', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + this.password, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      this.toast = '🗑️ 已删除 ' + code;
+      await this.load();
+      setTimeout(() => this.toast = '', 3000);
+    },
+    setExpire(code) { this.expireTarget = code; this.expireDays = 30; },
+    async confirmExpire() {
+      await fetch(API + '/expire', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + this.password, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: this.expireTarget, days: this.expireDays }),
+      });
+      this.expireTarget = null;
+      this.toast = '✅ 已更新过期时间';
+      await this.load();
+      setTimeout(() => this.toast = '', 3000);
+    },
+    statusClass(k) {
+      if (k.expires_at && Date.now() > k.expires_at) return 'badge-expired';
+      if (k.machine_id) return 'badge-used';
+      return 'badge-unused';
+    },
+    statusText(k) {
+      if (k.expires_at && Date.now() > k.expires_at) return '已过期';
+      if (k.machine_id) return '已激活';
+      return '未使用';
+    },
+  },
+}).mount('#app');
+</script>
+</body>
+</html>
