@@ -28,6 +28,26 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+      - name: Free disk space
+        run: |
+          df -h /
+          echo "---"
+          case "${{ matrix.os }}" in
+            ubuntu-*)
+              sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/android
+              sudo apt-get clean
+              ;;
+            macos-*)
+              sudo rm -rf /usr/local/lib/android /usr/local/share/dotnet /opt/ghc
+              ;;
+            windows-*)
+              rmdir /s /q "C:\Program Files\dotnet" 2>nul || true
+              rmdir /s /q "C:\Program Files (x86)\dotnet" 2>nul || true
+              rmdir /s /q "C:\Windows\Temp" 2>nul || true
+              ;;
+          esac
+          df -h /
+
       - name: Checkout
         uses: actions/checkout@v4
 
