@@ -129,48 +129,30 @@ jobs:
           sshpass -p "$PASS" scp -o StrictHostKeyChecking=no -r artifacts/*/* "${USER}@${HOST}:${REMOTE_DIR}/"
 
           # 按平台分类存放并重命名为固定名称
-          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no "${USER}@${HOST}" bash -s "$VERSION" << 'SCRIPT'
+          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no "${USER}@${HOST}" "
             set -e
-            VERSION="$1"
             cd /opt/downloads
+            ln -sfn '${VERSION}' latest
+            cd '${VERSION}'
 
-            # 创建 latest 软链
-            ln -sfn "${VERSION}" latest
+            WIN_EXE=\$(find . -name '*.exe' -type f | head -1)
+            [ -n \"\$WIN_EXE\" ] && ln -sf \"\$WIN_EXE\" pc_clinet_Windows_x64.exe || true
 
-            # 找各平台文件并创建友好名称的软链
-            cd "${VERSION}"
+            WIN_MSI=\$(find . -name '*.msi' -type f | head -1)
+            [ -n \"\$WIN_MSI\" ] && ln -sf \"\$WIN_MSI\" pc_clinet_Windows_x64.msi || true
 
-            # Windows
-            WIN_EXE=$(find . -name "*.exe" -type f 2>/dev/null | head -1)
-            if [ -n "$WIN_EXE" ]; then
-              ln -sf "$WIN_EXE" pc_clinet_Windows_x64.exe 2>/dev/null || true
-            fi
+            MAC_DMG=\$(find . -name '*.dmg' -type f | head -1)
+            [ -n \"\$MAC_DMG\" ] && ln -sf \"\$MAC_DMG\" pc_clinet_macOS_x64.dmg || true
 
-            WIN_MSI=$(find . -name "*.msi" -type f 2>/dev/null | head -1)
-            if [ -n "$WIN_MSI" ]; then
-              ln -sf "$WIN_MSI" pc_clinet_Windows_x64.msi 2>/dev/null || true
-            fi
+            LINUX_APPIMAGE=\$(find . -name '*.AppImage' -type f | head -1)
+            [ -n \"\$LINUX_APPIMAGE\" ] && ln -sf \"\$LINUX_APPIMAGE\" pc_clinet_Linux_x64.AppImage || true
 
-            # macOS
-            MAC_DMG=$(find . -name "*.dmg" -type f 2>/dev/null | head -1)
-            if [ -n "$MAC_DMG" ]; then
-              ln -sf "$MAC_DMG" pc_clinet_macOS_x64.dmg 2>/dev/null || true
-            fi
+            LINUX_DEB=\$(find . -name '*.deb' -type f | head -1)
+            [ -n \"\$LINUX_DEB\" ] && ln -sf \"\$LINUX_DEB\" pc_clinet_Linux_x64.deb || true
 
-            # Linux
-            LINUX_APPIMAGE=$(find . -name "*.AppImage" -type f 2>/dev/null | head -1)
-            if [ -n "$LINUX_APPIMAGE" ]; then
-              ln -sf "$LINUX_APPIMAGE" pc_clinet_Linux_x64.AppImage 2>/dev/null || true
-            fi
-
-            LINUX_DEB=$(find . -name "*.deb" -type f 2>/dev/null | head -1)
-            if [ -n "$LINUX_DEB" ]; then
-              ln -sf "$LINUX_DEB" pc_clinet_Linux_x64.deb 2>/dev/null || true
-            fi
-
-            echo "=== Deployed files ==="
+            echo '=== Deployed files ==='
             ls -lh /opt/downloads/latest/
-SCRIPT
+          "
 
       - name: Print result
         run: |
