@@ -36,10 +36,14 @@ jobs:
           case "${{ matrix.os }}" in
             ubuntu-*)
               sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /usr/local/lib/android
+              sudo rm -rf /usr/local/share/powershell /usr/share/swift /usr/local/.ghcup
+              sudo rm -rf /usr/local/lib/python* /opt/hostedtoolcache /var/lib/docker
+              sudo rm -rf /usr/share/miniconda /usr/local/share/chromium
               sudo apt-get clean
               ;;
             macos-*)
               sudo rm -rf /usr/local/lib/android /usr/local/share/dotnet /opt/ghc
+              sudo rm -rf /usr/local/share/boost
               ;;
             windows-*)
               rm -rf "/c/Program Files/dotnet" 2>/dev/null || true
