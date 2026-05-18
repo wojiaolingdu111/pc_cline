@@ -18,4 +18,5 @@ app-data/
 
 .claude
 docs/node_modules/
+docs/api/target/
 .vercel

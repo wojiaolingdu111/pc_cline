@@ -1,8 +1,0 @@
-{
-  "name": "ai-toreder-api",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "mongodb": "^7.2.0"
-  }
-}

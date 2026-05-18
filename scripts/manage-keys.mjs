@@ -14,7 +14,7 @@
 
 const { MongoClient } = await import('mongodb');
 
-const URI = process.env.pc_clinet_MONGODB_URI || process.env.MONGODB_URI;
+const URI = process.env.MONGODB_URI;
 const DB_NAME = process.env.MONGODB_DB || 'pc_clinet';
 
 const help = `
@@ -148,7 +148,7 @@ async function main() {
   if (!URI) {
     console.log('❌ 需要 MongoDB 连接串环境变量');
     console.log('   示例:');
-    console.log('   export pc_clinet_MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net"');
+    console.log('   export MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net"');
     console.log('   node scripts/manage-keys.mjs list\n');
     process.exit(1);
   }
