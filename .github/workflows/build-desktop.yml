@@ -97,3 +97,82 @@ jobs:
             src-tauri/target/release/bundle/**/*.rpm
             src-tauri/target/release/bundle/**/*.AppImage
           fail_on_unmatched_files: false
+
+  # ===== 新增：部署到服务器 =====
+  deploy:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Install sshpass
+        run: sudo apt-get install -y -qq sshpass
+
+      - name: Deploy to server
+        env:
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+          PASS: ${{ secrets.SERVER_PASSWORD }}
+        run: |
+          set -e
+          VERSION="${GITHUB_REF_NAME}"
+          REMOTE_DIR="/opt/downloads/${VERSION}"
+
+          # 远程创建目录
+          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no "${USER}@${HOST}" "mkdir -p ${REMOTE_DIR}"
+
+          # 上传所有构建产物
+          sshpass -p "$PASS" scp -o StrictHostKeyChecking=no -r artifacts/*/* "${USER}@${HOST}:${REMOTE_DIR}/"
+
+          # 按平台分类存放并重命名为固定名称
+          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no "${USER}@${HOST}" bash -s "$VERSION" << 'SCRIPT'
+            set -e
+            VERSION="$1"
+            cd /opt/downloads
+
+            # 创建 latest 软链
+            ln -sfn "${VERSION}" latest
+
+            # 找各平台文件并创建友好名称的软链
+            cd "${VERSION}"
+
+            # Windows
+            WIN_EXE=$(find . -name "*.exe" -type f 2>/dev/null | head -1)
+            if [ -n "$WIN_EXE" ]; then
+              ln -sf "$WIN_EXE" pc_clinet_Windows_x64.exe 2>/dev/null || true
+            fi
+
+            WIN_MSI=$(find . -name "*.msi" -type f 2>/dev/null | head -1)
+            if [ -n "$WIN_MSI" ]; then
+              ln -sf "$WIN_MSI" pc_clinet_Windows_x64.msi 2>/dev/null || true
+            fi
+
+            # macOS
+            MAC_DMG=$(find . -name "*.dmg" -type f 2>/dev/null | head -1)
+            if [ -n "$MAC_DMG" ]; then
+              ln -sf "$MAC_DMG" pc_clinet_macOS_x64.dmg 2>/dev/null || true
+            fi
+
+            # Linux
+            LINUX_APPIMAGE=$(find . -name "*.AppImage" -type f 2>/dev/null | head -1)
+            if [ -n "$LINUX_APPIMAGE" ]; then
+              ln -sf "$LINUX_APPIMAGE" pc_clinet_Linux_x64.AppImage 2>/dev/null || true
+            fi
+
+            LINUX_DEB=$(find . -name "*.deb" -type f 2>/dev/null | head -1)
+            if [ -n "$LINUX_DEB" ]; then
+              ln -sf "$LINUX_DEB" pc_clinet_Linux_x64.deb 2>/dev/null || true
+            fi
+
+            echo "=== Deployed files ==="
+            ls -lh /opt/downloads/latest/
+SCRIPT
+
+      - name: Print result
+        run: |
+          echo "✅ 部署完成: https://riji.grasslandstarrysky.top/downloads/latest/"
+          echo "版本: ${GITHUB_REF_NAME}"

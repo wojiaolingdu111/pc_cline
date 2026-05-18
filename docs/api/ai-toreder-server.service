@@ -1,0 +1,15 @@
+[Unit]
+Description=AI ToReder License Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/ai-toreder-server/ai-toreder-server
+ExecStartPre=mkdir -p /opt/ai-toreder-server/data
+WorkingDirectory=/opt/ai-toreder-server
+Restart=always
+RestartSec=5
+Environment=PORT=3002
+
+[Install]
+WantedBy=multi-user.target
