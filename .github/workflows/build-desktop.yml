@@ -29,6 +29,7 @@ jobs:
 
     steps:
       - name: Free disk space
+        shell: bash
         run: |
           df -h /
           echo "---"
@@ -41,9 +42,9 @@ jobs:
               sudo rm -rf /usr/local/lib/android /usr/local/share/dotnet /opt/ghc
               ;;
             windows-*)
-              rmdir /s /q "C:\Program Files\dotnet" 2>nul || true
-              rmdir /s /q "C:\Program Files (x86)\dotnet" 2>nul || true
-              rmdir /s /q "C:\Windows\Temp" 2>nul || true
+              rm -rf "/c/Program Files/dotnet" 2>/dev/null || true
+              rm -rf "/c/Program Files (x86)/dotnet" 2>/dev/null || true
+              rm -rf "/c/Windows/Temp" 2>/dev/null || true
               ;;
           esac
           df -h /
