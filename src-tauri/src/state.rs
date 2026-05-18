@@ -5,6 +5,7 @@ use std::env;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::Path;
 use std::process::Command;
+use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 use std::path::PathBuf;
@@ -18,7 +19,7 @@ pub struct AppState {
     pub client: Client,
     pub python_base_url: String,
     pub backend_token: Option<String>,
-    pub license: LicenseManager,
+    pub license: Mutex<LicenseManager>,
 }
 
 impl AppState {
@@ -27,9 +28,9 @@ impl AppState {
             .path()
             .app_data_dir()
             .unwrap_or_else(|_| PathBuf::from("app-data"));
-        let directories = AppDirectories::new(app_data_dir)?;
+        let directories = AppDirectories::new(app_data_dir.clone())?;
 
-        let license = LicenseManager::new(&app_data_dir);
+        let license = Mutex::new(LicenseManager::new(&app_data_dir));
         let startup = ensure_python_backend_running(app_handle);
 
         Ok(Self {

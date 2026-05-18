@@ -146,7 +146,7 @@ pub async fn pick_audio_file() -> Option<String> {
 
 #[tauri::command]
 pub fn get_license_status(state: State<'_, AppState>) -> LicenseInfo {
-    state.license.get_info()
+    state.license.lock().unwrap().get_info()
 }
 
 #[tauri::command]
@@ -154,7 +154,7 @@ pub async fn activate_license(
     key: String,
     state: State<'_, AppState>,
 ) -> Result<LicenseInfo, String> {
-    let machine_id = state.license.machine_id();
+    let machine_id = state.license.lock().unwrap().machine_id();
 
     // 联网验证
     let client = &state.client;
@@ -173,9 +173,11 @@ pub async fn activate_license(
     if result.get("valid").and_then(|v| v.as_bool()).unwrap_or(false) {
         state
             .license
+            .lock()
+            .unwrap()
             .set_license_key(key)
             .map_err(|e| format!("保存授权信息失败: {}", e))?;
-        Ok(state.license.get_info())
+        Ok(state.license.lock().unwrap().get_info())
     } else {
         Err(result
             .get("message")
