@@ -9,6 +9,7 @@ use rusqlite::Connection;
 use rust_embed::Embed;
 use serde::Deserialize;
 use std::sync::{Arc, Mutex};
+use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::EnvFilter;
 
 type Db = Arc<Mutex<Connection>>;
@@ -22,13 +23,17 @@ fn json_err(status: StatusCode, msg: &str) -> (StatusCode, Json<serde_json::Valu
     (status, Json(serde_json::json!({"error": msg})))
 }
 
+fn admin_password() -> String {
+    std::env::var("ADMIN_PASSWORD").unwrap_or_else(|_| "admin123".into())
+}
+
 fn check_auth(headers: &HeaderMap) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
     let token = headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .unwrap_or("");
-    if token != "root123" {
+    if token != admin_password() {
         return Err(json_err(StatusCode::UNAUTHORIZED, "密码错误"));
     }
     Ok(())
@@ -384,6 +389,11 @@ async fn main() {
     let conn = init_db(&db_path).expect("数据库初始化失败");
     let db: Db = Arc::new(Mutex::new(conn));
 
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     let app = Router::new()
         .route("/api/admin/list", get(handle_list))
         .route("/api/admin/add", post(handle_add))
@@ -393,7 +403,8 @@ async fn main() {
         .route("/api/license/activate", post(handle_activate))
         .route("/admin/{*path}", get(serve_admin))
         .route("/admin/", get(serve_admin_root))
-        .with_state(db);
+        .with_state(db)
+        .layer(cors);
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "3001".into());
     tracing::info!("Server running on http://localhost:{}", port);

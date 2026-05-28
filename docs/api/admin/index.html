@@ -1,230 +1,1083 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI ToReder 授权管理</title>
-  <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f4f6fa;color:#14213d;padding:32px 24px}
-    .container{max-width:960px;margin:0 auto}
-    h1{font-size:1.6rem;margin-bottom:4px}
-    .sub{color:rgba(20,33,61,.6);margin-bottom:24px}
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>AI ToReder 授权管理</title>
+        <style>
+            :root {
+                --bg: #f8f9fc;
+                --surface: #ffffff;
+                --text: #1a1a2e;
+                --text-secondary: #6b7280;
+                --text-muted: #9ca3af;
+                --border: #e5e7eb;
+                --border-light: #f3f4f6;
+                --accent: #f59e0b;
+                --accent-light: #fef3c7;
+                --accent-hover: #d97706;
+                --danger: #ef4444;
+                --danger-light: #fee2e2;
+                --success: #10b981;
+                --success-light: #d1fae5;
+                --info: #3b82f6;
+                --info-light: #dbeafe;
+                --warning: #f59e0b;
+                --warning-light: #fef3c7;
+                --radius: 12px;
+                --radius-lg: 16px;
+                --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+                --shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+                --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.08);
+                --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            }
 
-    /* login */
-    .login-box{max-width:360px;margin:80px auto;padding:36px;background:#fff;border-radius:24px;box-shadow:0 20px 50px rgba(20,33,61,.08)}
-    .login-box h2{margin-bottom:16px}
-    .login-box input{width:100%;padding:12px 14px;border:1px solid rgba(20,33,61,.12);border-radius:12px;font-size:1rem;margin-bottom:12px}
-    .login-box input:focus{border-color:#ff9f1c;outline:none}
-    .login-box .error{color:#8a1c28;font-size:.9rem;margin-bottom:8px}
+            *,
+            *::before,
+            *::after {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei",
+                    sans-serif;
+                background: var(--bg);
+                color: var(--text);
+                line-height: 1.6;
+                -webkit-font-smoothing: antialiased;
+            }
 
-    .bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:20px}
-    .bar .btn{padding:8px 16px;border-radius:10px;font-weight:700;cursor:pointer;border:none;font-size:.9rem}
-    .btn-primary{background:linear-gradient(135deg,#ff9f1c,#ffbf69);color:#14213d}
-    .btn-danger{background:#8a1c28;color:#fff}
-    .btn-outline{background:transparent;border:1px solid rgba(20,33,61,.15);color:#14213d}
-    .btn:disabled{opacity:.5;cursor:not-allowed}
-    .badge{display:inline-flex;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}
-    .badge-active{background:#d1fae5;color:#065f46}
-    .badge-expired{background:#fee2e2;color:#8a1c28}
-    .badge-used{background:#fef3c7;color:#92400e}
-    .badge-unused{background:#e0f2fe;color:#0369a1}
+            /* === LOGIN === */
+            .login-wrapper {
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: linear-gradient(
+                    135deg,
+                    #f8f9fc 0%,
+                    #eef1f5 50%,
+                    #f0f4ff 100%
+                );
+            }
+            .login-card {
+                width: 100%;
+                max-width: 400px;
+                padding: 44px 36px;
+                background: var(--surface);
+                border-radius: 20px;
+                box-shadow: var(--shadow-lg);
+            }
+            .login-logo {
+                width: 56px;
+                height: 56px;
+                border-radius: 16px;
+                background: linear-gradient(135deg, #f59e0b, #fbbf24);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.6rem;
+                margin: 0 auto 20px;
+            }
+            .login-card h2 {
+                text-align: center;
+                font-size: 1.3rem;
+                font-weight: 700;
+                margin-bottom: 4px;
+            }
+            .login-card .sub {
+                text-align: center;
+                color: var(--text-secondary);
+                font-size: 0.9rem;
+                margin-bottom: 28px;
+            }
+            .form-group {
+                margin-bottom: 16px;
+            }
+            .form-group label {
+                display: block;
+                font-size: 0.85rem;
+                font-weight: 600;
+                margin-bottom: 6px;
+                color: var(--text);
+            }
+            .input {
+                width: 100%;
+                padding: 12px 16px;
+                border: 2px solid var(--border);
+                border-radius: var(--radius);
+                font-size: 0.95rem;
+                transition: var(--transition);
+                background: var(--bg);
+                color: var(--text);
+            }
+            .input:focus {
+                border-color: var(--accent);
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
+                background: var(--surface);
+            }
+            .input::placeholder {
+                color: var(--text-muted);
+            }
+            .login-error {
+                background: var(--danger-light);
+                color: var(--danger);
+                padding: 10px 14px;
+                border-radius: var(--radius);
+                font-size: 0.85rem;
+                margin-bottom: 16px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
 
-    table{width:100%;border-collapse:collapse;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(20,33,61,.06)}
-    th,td{padding:12px 16px;text-align:left;font-size:.9rem}
-    th{background:rgba(20,33,61,.03);font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}
-    td{border-top:1px solid rgba(20,33,61,.04)}
-    .actions{display:flex;gap:6px}
-    .actions button{padding:4px 10px;border-radius:6px;border:1px solid rgba(20,33,61,.12);background:transparent;cursor:pointer;font-size:.8rem}
-    .actions button:hover{border-color:#ff9f1c}
+            /* === BUTTONS === */
+            .btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                padding: 10px 20px;
+                border-radius: var(--radius);
+                font-weight: 600;
+                font-size: 0.9rem;
+                cursor: pointer;
+                border: none;
+                transition: var(--transition);
+                text-decoration: none;
+            }
+            .btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+                pointer-events: none;
+            }
+            .btn-primary {
+                background: linear-gradient(135deg, #f59e0b, #fbbf24);
+                color: #1a1a2e;
+                box-shadow: 0 2px 12px rgba(245, 158, 11, 0.25);
+            }
+            .btn-primary:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 20px rgba(245, 158, 11, 0.35);
+            }
+            .btn-danger {
+                background: var(--danger);
+                color: #fff;
+            }
+            .btn-danger:hover {
+                background: #dc2626;
+            }
+            .btn-outline {
+                background: transparent;
+                border: 2px solid var(--border);
+                color: var(--text);
+            }
+            .btn-outline:hover {
+                border-color: var(--accent);
+                color: var(--accent);
+            }
+            .btn-ghost {
+                background: transparent;
+                color: var(--text-secondary);
+            }
+            .btn-ghost:hover {
+                background: var(--border-light);
+                color: var(--text);
+            }
+            .btn-sm {
+                padding: 6px 14px;
+                font-size: 0.82rem;
+            }
+            .btn-xs {
+                padding: 4px 10px;
+                font-size: 0.78rem;
+                border-radius: 8px;
+            }
+            .btn-block {
+                width: 100%;
+            }
 
-    /* modal */
-    .modal-overlay{position:fixed;inset:0;background:rgba(20,33,61,.4);display:flex;align-items:center;justify-content:center;z-index:100}
-    .modal{background:#fff;border-radius:20px;padding:28px;max-width:400px;width:90%;box-shadow:0 40px 80px rgba(20,33,61,.2)}
-    .modal h3{margin-bottom:12px}
-    .modal input,.modal select{width:100%;padding:10px 12px;border:1px solid rgba(20,33,61,.12);border-radius:10px;font-size:.95rem;margin-bottom:10px}
-    .modal input:focus{border-color:#ff9f1c;outline:none}
-    .modal .row{display:flex;gap:12px}
-    .modal .row>*{flex:1}
-    .modal .btns{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
-    .empty{text-align:center;padding:40px;color:rgba(20,33,61,.5)}
-    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;background:#14213d;color:#fff;border-radius:12px;font-size:.9rem;z-index:200;animation:fadeIn .3s}
-    @keyframes fadeIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
-  </style>
-</head>
-<body>
-<div class="container" id="app">
-  <div v-if="!authed" class="login-box">
-    <h2>🔐 授权管理</h2>
-    <p class="sub">请输入管理员密码</p>
-    <input v-model="password" type="password" placeholder="密码" @keyup.enter="login" />
-    <p v-if="loginError" class="error">{{ loginError }}</p>
-    <button class="btn btn-primary" style="width:100%" @click="login">登录</button>
-  </div>
+            /* === MAIN LAYOUT === */
+            .app-layout {
+                max-width: 1100px;
+                margin: 0 auto;
+                padding: 32px 24px;
+            }
 
-  <template v-else>
-    <div style="display:flex;justify-content:space-between;align-items:start">
-      <div>
-        <h1>🔑 授权码管理</h1>
-        <p class="sub">共 {{ keys.length }} 个授权码</p>
-      </div>
-      <button class="btn btn-outline" @click="logout">退出</button>
-    </div>
+            /* === HEADER === */
+            .app-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 28px;
+                padding: 24px;
+                background: var(--surface);
+                border-radius: var(--radius-lg);
+                box-shadow: var(--shadow-sm);
+            }
+            .app-header .left h1 {
+                font-size: 1.4rem;
+                font-weight: 800;
+                letter-spacing: -0.02em;
+            }
+            .app-header .left .meta {
+                color: var(--text-secondary);
+                font-size: 0.85rem;
+                margin-top: 2px;
+            }
 
-    <div class="bar">
-      <button class="btn btn-primary" @click="showAdd = true">+ 新增授权码</button>
-      <button class="btn btn-outline" :disabled="loading" @click="load">刷新</button>
-      <span v-if="loading" style="color:rgba(20,33,61,.5);font-size:.9rem">加载中…</span>
-    </div>
+            /* === STATS === */
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 16px;
+                margin-bottom: 24px;
+            }
+            .stat-card {
+                padding: 20px 24px;
+                background: var(--surface);
+                border-radius: var(--radius-lg);
+                box-shadow: var(--shadow-sm);
+                display: flex;
+                align-items: center;
+                gap: 16px;
+            }
+            .stat-icon {
+                width: 44px;
+                height: 44px;
+                border-radius: 12px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.2rem;
+                flex-shrink: 0;
+            }
+            .stat-card .val {
+                font-size: 1.6rem;
+                font-weight: 800;
+                line-height: 1;
+            }
+            .stat-card .lbl {
+                color: var(--text-secondary);
+                font-size: 0.8rem;
+                margin-top: 4px;
+            }
 
-    <table>
-      <thead>
-        <tr><th>授权码</th><th>状态</th><th>激活</th><th>绑定设备</th><th>过期</th><th></th></tr>
-      </thead>
-      <tbody>
-        <tr v-for="k in keys" :key="k.code">
-          <td style="font-family:monospace;font-weight:600">{{ k.code }}</td>
-          <td><span class="badge" :class="statusClass(k)">{{ statusText(k) }}</span></td>
-          <td>{{ k.activation_count }}/{{ k.max_activations }}</td>
-          <td style="font-size:.8rem;font-family:monospace">{{ k.machine_id ? k.machine_id.slice(0,10)+'…' : '—' }}</td>
-          <td style="font-size:.85rem">{{ k.expires_at ? new Date(k.expires_at).toLocaleDateString('zh-CN') : '永久' }}</td>
-          <td class="actions">
-            <button @click="setExpire(k.code)">设过期</button>
-            <button style="color:#8a1c28" @click="remove(k.code)">删除</button>
-          </td>
-        </tr>
-        <tr v-if="!keys.length"><td colspan="6" class="empty">还没有授权码</td></tr>
-      </tbody>
-    </table>
-  </template>
+            /* === TOOLBAR === */
+            .toolbar {
+                display: flex;
+                gap: 12px;
+                align-items: center;
+                flex-wrap: wrap;
+                margin-bottom: 20px;
+            }
+            .toolbar-spacer {
+                flex: 1;
+            }
 
-  <!-- 新增弹窗 -->
-  <div v-if="showAdd" class="modal-overlay" @click.self="showAdd = false">
-    <div class="modal">
-      <h3>新增授权码</h3>
-      <input v-model="newCode" placeholder="授权码（留空自动生成）" />
-      <div class="row">
-        <input v-model.number="newMax" type="number" placeholder="最大激活数" />
-        <input v-model.number="newDays" type="number" placeholder="过期天数(0=永久)" />
-      </div>
-      <p v-if="addError" style="color:#8a1c28;font-size:.85rem;margin-bottom:8px">{{ addError }}</p>
-      <div class="btns">
-        <button class="btn btn-outline" @click="showAdd = false">取消</button>
-        <button class="btn btn-primary" @click="add">添加</button>
-      </div>
-    </div>
-  </div>
+            /* === TABLE === */
+            .table-wrap {
+                background: var(--surface);
+                border-radius: var(--radius-lg);
+                overflow: hidden;
+                box-shadow: var(--shadow-sm);
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            thead th {
+                padding: 14px 18px;
+                text-align: left;
+                font-size: 0.78rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                color: var(--text-secondary);
+                background: var(--border-light);
+                border-bottom: 1px solid var(--border);
+            }
+            tbody td {
+                padding: 14px 18px;
+                font-size: 0.9rem;
+                border-bottom: 1px solid var(--border-light);
+            }
+            tbody tr {
+                transition: var(--transition);
+            }
+            tbody tr:hover {
+                background: rgba(245, 158, 11, 0.03);
+            }
+            tbody tr:last-child td {
+                border-bottom: none;
+            }
+            .mono {
+                font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+                font-weight: 600;
+                font-size: 0.88rem;
+            }
+            .cell-muted {
+                color: var(--text-secondary);
+            }
 
-  <!-- 设过期弹窗 -->
-  <div v-if="expireTarget" class="modal-overlay" @click.self="expireTarget = null">
-    <div class="modal">
-      <h3>设置过期</h3>
-      <p style="margin-bottom:12px;color:rgba(20,33,61,.6)">{{ expireTarget }}</p>
-      <input v-model.number="expireDays" type="number" placeholder="过期天数（0=永久）" @keyup.enter="confirmExpire" />
-      <div class="btns">
-        <button class="btn btn-outline" @click="expireTarget = null">取消</button>
-        <button class="btn btn-primary" @click="confirmExpire">确定</button>
-      </div>
-    </div>
-  </div>
+            /* === BADGES === */
+            .badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                padding: 4px 12px;
+                border-radius: 999px;
+                font-size: 0.78rem;
+                font-weight: 700;
+                white-space: nowrap;
+            }
+            .badge-active {
+                background: var(--success-light);
+                color: #065f46;
+            }
+            .badge-expired {
+                background: var(--danger-light);
+                color: #991b1b;
+            }
+            .badge-used {
+                background: var(--warning-light);
+                color: #92400e;
+            }
+            .badge-unused {
+                background: var(--info-light);
+                color: #0369a1;
+            }
+            .badge-dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+            }
+            .badge-dot.green {
+                background: #10b981;
+            }
+            .badge-dot.red {
+                background: #ef4444;
+            }
+            .badge-dot.yellow {
+                background: #f59e0b;
+            }
+            .badge-dot.blue {
+                background: #3b82f6;
+            }
 
-  <div v-if="toast" class="toast">{{ toast }}</div>
-</div>
+            .row-actions {
+                display: flex;
+                gap: 8px;
+            }
+            .row-actions button {
+                padding: 5px 12px;
+                border-radius: 8px;
+                border: 1px solid var(--border);
+                background: var(--surface);
+                cursor: pointer;
+                font-size: 0.82rem;
+                transition: var(--transition);
+                color: var(--text-secondary);
+            }
+            .row-actions button:hover {
+                border-color: var(--accent);
+                color: var(--accent);
+                background: var(--accent-light);
+            }
+            .row-actions button.danger:hover {
+                border-color: var(--danger);
+                color: var(--danger);
+                background: var(--danger-light);
+            }
 
-<script src="vue.global.prod.js"></script>
-<script>
-const API = 'api/admin';
+            /* === MODAL === */
+            .modal-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.4);
+                backdrop-filter: blur(4px);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 100;
+                animation: fadeIn 0.2s ease;
+            }
+            .modal {
+                background: var(--surface);
+                border-radius: 20px;
+                padding: 32px;
+                max-width: 440px;
+                width: 90%;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+                animation: slideUp 0.25s ease;
+            }
+            .modal h3 {
+                font-size: 1.15rem;
+                font-weight: 700;
+                margin-bottom: 6px;
+            }
+            .modal .modal-sub {
+                color: var(--text-secondary);
+                font-size: 0.85rem;
+                margin-bottom: 20px;
+            }
+            .modal .form-row {
+                display: flex;
+                gap: 12px;
+                margin-bottom: 12px;
+            }
+            .modal .form-row > * {
+                flex: 1;
+            }
+            .modal .modal-actions {
+                display: flex;
+                gap: 10px;
+                justify-content: flex-end;
+                margin-top: 20px;
+            }
+            .modal input,
+            .modal select {
+                width: 100%;
+                padding: 10px 14px;
+                border: 2px solid var(--border);
+                border-radius: var(--radius);
+                font-size: 0.9rem;
+                transition: var(--transition);
+                background: var(--bg);
+            }
+            .modal input:focus {
+                border-color: var(--accent);
+                outline: none;
+                box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+                background: var(--surface);
+            }
 
-const app = Vue.createApp({
-  data() {
-    return {
-      authed: false,
-      password: '',
-      loginError: '',
-      keys: [],
-      loading: false,
-      showAdd: false,
-      newCode: '',
-      newMax: 1,
-      newDays: 0,
-      addError: '',
-      expireTarget: null,
-      expireDays: 30,
-      toast: '',
-    };
-  },
-  methods: {
-    async login() {
-      this.loginError = '';
-      try {
-        const r = await fetch(API + '/list', { headers: { Authorization: 'Bearer ' + this.password } });
-        if (!r.ok) throw new Error('密码错误');
-        this.authed = true;
-        this.keys = (await r.json()).keys;
-      } catch (e) {
-        this.loginError = e.message;
-      }
-    },
-    logout() { this.authed = false; this.password = ''; this.keys = []; },
-    async load() {
-      this.loading = true;
-      try {
-        const r = await fetch(API + '/list', { headers: { Authorization: 'Bearer ' + this.password } });
-        this.keys = (await r.json()).keys;
-      } finally { this.loading = false; }
-    },
-    async add() {
-      this.addError = '';
-      const code = this.newCode || 'LICENSE-' + Array.from({length:8},()=>Math.floor(Math.random()*16).toString(16).toUpperCase()).join('');
-      try {
-        const r = await fetch(API + '/add', {
-          method: 'POST',
-          headers: { Authorization: 'Bearer ' + this.password, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, max_activations: this.newMax, expires_in_days: this.newDays || undefined }),
-        });
-        if (!r.ok) { const d = await r.json(); throw new Error(d.error); }
-        this.showAdd = false;
-        this.newCode = '';
-        this.toast = '✅ 已添加 ' + code;
-        await this.load();
-        setTimeout(() => this.toast = '', 3000);
-      } catch (e) { this.addError = e.message; }
-    },
-    async remove(code) {
-      if (!confirm('确定删除 ' + code + '？')) return;
-      await fetch(API + '/remove', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + this.password, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
-      });
-      this.toast = '🗑️ 已删除 ' + code;
-      await this.load();
-      setTimeout(() => this.toast = '', 3000);
-    },
-    setExpire(code) { this.expireTarget = code; this.expireDays = 30; },
-    async confirmExpire() {
-      await fetch(API + '/expire', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + this.password, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: this.expireTarget, days: this.expireDays }),
-      });
-      this.expireTarget = null;
-      this.toast = '✅ 已更新过期时间';
-      await this.load();
-      setTimeout(() => this.toast = '', 3000);
-    },
-    statusClass(k) {
-      if (k.expires_at && Date.now() > k.expires_at) return 'badge-expired';
-      if (k.machine_id) return 'badge-used';
-      return 'badge-unused';
-    },
-    statusText(k) {
-      if (k.expires_at && Date.now() > k.expires_at) return '已过期';
-      if (k.machine_id) return '已激活';
-      return '未使用';
-    },
-  },
-}).mount('#app');
-</script>
-</body>
+            /* === EMPTY === */
+            .empty-state {
+                text-align: center;
+                padding: 56px 24px;
+            }
+            .empty-icon {
+                font-size: 3rem;
+                margin-bottom: 16px;
+            }
+            .empty-state h3 {
+                font-weight: 700;
+                margin-bottom: 4px;
+            }
+            .empty-state p {
+                color: var(--text-secondary);
+                font-size: 0.9rem;
+            }
+
+            /* === TOAST === */
+            .toast {
+                position: fixed;
+                bottom: 32px;
+                left: 50%;
+                transform: translateX(-50%);
+                padding: 14px 28px;
+                background: #1a1a2e;
+                color: #fff;
+                border-radius: 14px;
+                font-size: 0.9rem;
+                font-weight: 600;
+                z-index: 200;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+                animation: toastIn 0.35s ease;
+            }
+            .toast.success {
+                background: #065f46;
+            }
+            .toast.error {
+                background: #991b1b;
+            }
+
+            /* === LOADING === */
+            .loading-text {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: var(--text-secondary);
+                font-size: 0.9rem;
+            }
+            .spinner {
+                width: 16px;
+                height: 16px;
+                border: 2px solid var(--border);
+                border-top-color: var(--accent);
+                border-radius: 50%;
+                animation: spin 0.6s linear infinite;
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                }
+                to {
+                    opacity: 1;
+                }
+            }
+            @keyframes slideUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(16px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            @keyframes toastIn {
+                from {
+                    opacity: 0;
+                    transform: translateX(-50%) translateY(12px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(-50%) translateY(0);
+                }
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            @media (max-width: 640px) {
+                .app-layout {
+                    padding: 16px 12px;
+                }
+                .app-header {
+                    flex-direction: column;
+                    align-items: start;
+                    gap: 12px;
+                }
+                .stats-grid {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+                .toolbar {
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+                thead th,
+                tbody td {
+                    padding: 10px 12px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <!-- ========== LOGIN VIEW ========== -->
+        <div id="app">
+            <div v-if="!authed" class="login-wrapper">
+                <div class="login-card">
+                    <div class="login-logo">🔐</div>
+                    <h2>授权管理</h2>
+                    <p class="sub">请输入管理员密码以继续</p>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input
+                            class="input"
+                            v-model="password"
+                            type="password"
+                            placeholder="输入管理员密码"
+                            @keyup.enter="login"
+                            autofocus
+                        />
+                    </div>
+                    <div v-if="loginError" class="login-error">
+                        <span>⚠️</span> {{ loginError }}
+                    </div>
+                    <button
+                        class="btn btn-primary btn-block"
+                        @click="login"
+                        :disabled="!password"
+                    >
+                        登录
+                    </button>
+                </div>
+            </div>
+
+            <!-- ========== MAIN VIEW ========== -->
+            <div v-else class="app-layout">
+                <!-- Header -->
+                <div class="app-header">
+                    <div class="left">
+                        <h1>🔑 授权码管理</h1>
+                        <p class="meta">共 {{ keys.length }} 个授权码</p>
+                    </div>
+                    <button class="btn btn-outline btn-sm" @click="logout">
+                        退出登录
+                    </button>
+                </div>
+
+                <!-- Stats -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div
+                            class="stat-icon"
+                            style="background: var(--info-light)"
+                        >
+                            📋
+                        </div>
+                        <div>
+                            <div class="val">{{ keys.length }}</div>
+                            <div class="lbl">授权码总数</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div
+                            class="stat-icon"
+                            style="background: var(--success-light)"
+                        >
+                            ✅
+                        </div>
+                        <div>
+                            <div class="val">{{ activeCount }}</div>
+                            <div class="lbl">已激活</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div
+                            class="stat-icon"
+                            style="background: var(--warning-light)"
+                        >
+                            📦
+                        </div>
+                        <div>
+                            <div class="val">{{ unusedCount }}</div>
+                            <div class="lbl">未使用</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div
+                            class="stat-icon"
+                            style="background: var(--danger-light)"
+                        >
+                            ⏰
+                        </div>
+                        <div>
+                            <div class="val">{{ expiredCount }}</div>
+                            <div class="lbl">已过期</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Toolbar -->
+                <div class="toolbar">
+                    <button class="btn btn-primary" @click="showAdd = true">
+                        <span>＋</span> 新增授权码
+                    </button>
+                    <button
+                        class="btn btn-outline btn-sm"
+                        :disabled="loading"
+                        @click="load"
+                    >
+                        <span>↻</span> 刷新
+                    </button>
+                    <span class="toolbar-spacer"></span>
+                    <span v-if="loading" class="loading-text">
+                        <span class="spinner"></span> 加载中…
+                    </span>
+                </div>
+
+                <!-- Table -->
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>授权码</th>
+                                <th>状态</th>
+                                <th>激活次数</th>
+                                <th>绑定设备</th>
+                                <th>过期时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="k in keys" :key="k.code">
+                                <td><span class="mono">{{ k.code }}</span></td>
+                                <td>
+                                    <span class="badge" :class="statusClass(k)">
+                                        <span
+                                            class="badge-dot"
+                                            :class="statusDot(k)"
+                                        ></span>
+                                        {{ statusText(k) }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span
+                                        :class="{ 'cell-muted': k.activation_count === 0 }"
+                                        >{{ k.activation_count }}</span
+                                    >
+                                    <span class="cell-muted">
+                                        / {{ k.max_activations }}</span
+                                    >
+                                </td>
+                                <td
+                                    class="mono cell-muted"
+                                    style="font-size: 0.78rem"
+                                >
+                                    {{ k.machine_id ?
+                                    k.machine_id.slice(0,12)+'…' : '—' }}
+                                </td>
+                                <td
+                                    class="cell-muted"
+                                    style="font-size: 0.85rem"
+                                >
+                                    {{ k.expires_at ? formatDate(k.expires_at) :
+                                    '永不过期' }}
+                                </td>
+                                <td>
+                                    <div class="row-actions">
+                                        <button @click="setExpire(k.code)">
+                                            设过期
+                                        </button>
+                                        <button
+                                            class="danger"
+                                            @click="remove(k.code)"
+                                        >
+                                            删除
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr v-if="!keys.length">
+                                <td colspan="6">
+                                    <div class="empty-state">
+                                        <div class="empty-icon">📭</div>
+                                        <h3>还没有授权码</h3>
+                                        <p>点击「新增授权码」创建第一个</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ========== ADD MODAL ========== -->
+            <div
+                v-if="showAdd"
+                class="modal-overlay"
+                @click.self="showAdd = false"
+            >
+                <div class="modal">
+                    <h3>新增授权码</h3>
+                    <p class="modal-sub">创建新的软件授权码</p>
+                    <div class="form-group">
+                        <label>授权码</label>
+                        <input
+                            class="input"
+                            v-model="newCode"
+                            placeholder="留空自动生成 LICENSE-XXXXXXXX"
+                        />
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>最大激活次数</label>
+                            <input
+                                class="input"
+                                v-model.number="newMax"
+                                type="number"
+                                min="1"
+                                placeholder="1"
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label>过期天数</label>
+                            <input
+                                class="input"
+                                v-model.number="newDays"
+                                type="number"
+                                min="0"
+                                placeholder="0 = 永久"
+                            />
+                        </div>
+                    </div>
+                    <div v-if="addError" class="login-error">
+                        <span>⚠️</span> {{ addError }}
+                    </div>
+                    <div class="modal-actions">
+                        <button
+                            class="btn btn-outline"
+                            @click="showAdd = false"
+                        >
+                            取消
+                        </button>
+                        <button
+                            class="btn btn-primary"
+                            @click="add"
+                            :disabled="!newMax || newMax < 1"
+                        >
+                            添加
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========== EXPIRE MODAL ========== -->
+            <div
+                v-if="expireTarget"
+                class="modal-overlay"
+                @click.self="expireTarget = null"
+            >
+                <div class="modal">
+                    <h3>设置过期</h3>
+                    <p class="modal-sub">
+                        授权码
+                        <code class="mono" style="font-size: 0.85rem"
+                            >{{ expireTarget }}</code
+                        >
+                    </p>
+                    <div class="form-group">
+                        <label>过期天数</label>
+                        <input
+                            class="input"
+                            v-model.number="expireDays"
+                            type="number"
+                            min="0"
+                            placeholder="0 = 永久"
+                            @keyup.enter="confirmExpire"
+                            autofocus
+                        />
+                    </div>
+                    <div class="modal-actions">
+                        <button
+                            class="btn btn-outline"
+                            @click="expireTarget = null"
+                        >
+                            取消
+                        </button>
+                        <button class="btn btn-primary" @click="confirmExpire">
+                            确定
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========== TOAST ========== -->
+            <div v-if="toast" class="toast" :class="toastType">{{ toast }}</div>
+        </div>
+
+        <script src="https://rijiassets.grasslandstarrysky.top/AIToReder/admin/vue.global.prod.js"></script>
+        <script>
+            const API = "https://riji.grasslandstarrysky.top/license/api/admin";
+
+            const app = Vue.createApp({
+                data() {
+                    return {
+                        authed: false,
+                        password: "",
+                        loginError: "",
+                        keys: [],
+                        loading: false,
+                        showAdd: false,
+                        newCode: "",
+                        newMax: 1,
+                        newDays: 0,
+                        addError: "",
+                        expireTarget: null,
+                        expireDays: 30,
+                        toast: "",
+                        toastType: "success",
+                        toastTimer: null,
+                    };
+                },
+                computed: {
+                    activeCount() {
+                        return this.keys.filter(
+                            (k) =>
+                                k.machine_id &&
+                                (!k.expires_at || Date.now() <= k.expires_at),
+                        ).length;
+                    },
+                    unusedCount() {
+                        return this.keys.filter(
+                            (k) =>
+                                !k.machine_id &&
+                                (!k.expires_at || Date.now() <= k.expires_at),
+                        ).length;
+                    },
+                    expiredCount() {
+                        return this.keys.filter(
+                            (k) => k.expires_at && Date.now() > k.expires_at,
+                        ).length;
+                    },
+                },
+                methods: {
+                    showToast(msg, type) {
+                        this.toast = msg;
+                        this.toastType = type || "success";
+                        clearTimeout(this.toastTimer);
+                        this.toastTimer = setTimeout(
+                            () => (this.toast = ""),
+                            3000,
+                        );
+                    },
+                    formatDate(ts) {
+                        return new Date(ts).toLocaleDateString("zh-CN", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                        });
+                    },
+
+                    async login() {
+                        this.loginError = "";
+                        if (!this.password) return;
+                        try {
+                            const r = await fetch(API + "/list", {
+                                headers: {
+                                    Authorization: "Bearer " + this.password,
+                                },
+                            });
+                            if (!r.ok) throw new Error("密码错误");
+                            this.authed = true;
+                            this.keys = (await r.json()).keys;
+                        } catch (e) {
+                            this.loginError = e.message;
+                        }
+                    },
+
+                    logout() {
+                        this.authed = false;
+                        this.password = "";
+                        this.keys = [];
+                    },
+
+                    async load() {
+                        this.loading = true;
+                        try {
+                            const r = await fetch(API + "/list", {
+                                headers: {
+                                    Authorization: "Bearer " + this.password,
+                                },
+                            });
+                            const data = await r.json();
+                            this.keys = data.keys;
+                        } finally {
+                            this.loading = false;
+                        }
+                    },
+
+                    async add() {
+                        this.addError = "";
+                        const code =
+                            this.newCode ||
+                            "LICENSE-" +
+                                Array.from({ length: 8 }, () =>
+                                    Math.floor(Math.random() * 16)
+                                        .toString(16)
+                                        .toUpperCase(),
+                                ).join("");
+                        try {
+                            const r = await fetch(API + "/add", {
+                                method: "POST",
+                                headers: {
+                                    Authorization: "Bearer " + this.password,
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                    code,
+                                    max_activations: this.newMax,
+                                    expires_in_days: this.newDays || undefined,
+                                }),
+                            });
+                            if (!r.ok) {
+                                const d = await r.json();
+                                throw new Error(d.error);
+                            }
+                            this.showAdd = false;
+                            this.newCode = "";
+                            this.newMax = 1;
+                            this.newDays = 0;
+                            this.showToast("✅ 已添加 " + code);
+                            await this.load();
+                        } catch (e) {
+                            this.addError = e.message;
+                        }
+                    },
+
+                    async remove(code) {
+                        if (
+                            !confirm(
+                                "确定删除授权码 " + code + "？此操作不可撤销。",
+                            )
+                        )
+                            return;
+                        try {
+                            await fetch(API + "/remove", {
+                                method: "POST",
+                                headers: {
+                                    Authorization: "Bearer " + this.password,
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({ code }),
+                            });
+                            this.showToast("🗑️ 已删除 " + code);
+                            await this.load();
+                        } catch (e) {
+                            this.showToast("删除失败", "error");
+                        }
+                    },
+
+                    setExpire(code) {
+                        this.expireTarget = code;
+                        this.expireDays = 30;
+                    },
+
+                    async confirmExpire() {
+                        try {
+                            await fetch(API + "/expire", {
+                                method: "POST",
+                                headers: {
+                                    Authorization: "Bearer " + this.password,
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                    code: this.expireTarget,
+                                    days: this.expireDays,
+                                }),
+                            });
+                            this.expireTarget = null;
+                            this.showToast("✅ 已更新过期时间");
+                            await this.load();
+                        } catch (e) {
+                            this.showToast("操作失败", "error");
+                        }
+                    },
+
+                    statusClass(k) {
+                        if (k.expires_at && Date.now() > k.expires_at)
+                            return "badge-expired";
+                        if (k.machine_id) return "badge-used";
+                        return "badge-unused";
+                    },
+
+                    statusDot(k) {
+                        if (k.expires_at && Date.now() > k.expires_at)
+                            return "red";
+                        if (k.machine_id) return "green";
+                        return "blue";
+                    },
+
+                    statusText(k) {
+                        if (k.expires_at && Date.now() > k.expires_at)
+                            return "已过期";
+                        if (k.machine_id) return "已激活";
+                        return "未使用";
+                    },
+                },
+            }).mount("#app");
+        </script>
+    </body>
 </html>
