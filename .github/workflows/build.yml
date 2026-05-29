@@ -112,8 +112,8 @@ jobs:
 
                   upload() {
                     local src="$1" tag_path="$2" latest_path="$3"
-                    "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "${tag_path}" "$src"
-                    "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "${latest_path}" "$src" --overwrite
+                    "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "${tag_path}" "$src" || true
+                    "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "${latest_path}" "$src" --overwrite || true
                     echo "Uploaded: ${tag_path}  +  ${latest_path}"
                   }
 
@@ -140,9 +140,6 @@ jobs:
                     macOS)
                       for f in src-tauri/target/release/bundle/dmg/*.dmg; do
                         [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/macos/$(basename "$f")" "pc-clinet/latest/macos/AI_ToReder_macos.dmg"
-                      done
-                      for f in src-tauri/target/release/bundle/macos/*.tar.gz; do
-                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/macos/$(basename "$f")" "pc-clinet/latest/macos/AI_ToReder_macos.app.tar.gz"
                       done
                       ;;
                   esac
