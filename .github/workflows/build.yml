@@ -80,25 +80,26 @@ jobs:
 
             - run: pnpm exec tauri build --bundles ${{ matrix.bundles }}
 
-            - name: Download & extract qshell
+            - name: Download & extract qshell (Linux / macOS)
+              if: runner.os != 'Windows'
               shell: bash
               run: |
-                  if [ "${{ runner.os }}" = "Windows" ]; then
-                    # Windows: use PowerShell for zip
-                    pwsh -Command "
-                      \$asset = '${{ matrix.qshell_asset }}'
-                      \$url = 'https://github.com/qiniu/qshell/releases/download/\${{ env.QSHELL_VER }}/\$asset'
-                      curl.exe -sL -o \"\$env:TEMP\\\$asset\" \$url
-                      Expand-Archive -Path \"\$env:TEMP\\\$asset\" -DestinationPath \$env:TEMP -Force
-                    "
-                    echo "QSHELL_PATH=$env:TEMP\\${{ matrix.qshell_bin }}" >> $GITHUB_ENV
-                  else
-                    curl -sL -o /tmp/${{ matrix.qshell_asset }} \
-                      "https://github.com/qiniu/qshell/releases/download/${{ env.QSHELL_VER }}/${{ matrix.qshell_asset }}"
-                    tar xzf /tmp/${{ matrix.qshell_asset }} -C /tmp/
-                    chmod +x /tmp/${{ matrix.qshell_bin }}
-                    echo "QSHELL_PATH=/tmp/${{ matrix.qshell_bin }}" >> $GITHUB_ENV
-                  fi
+                  curl -sL -o /tmp/${{ matrix.qshell_asset }} \
+                    "https://github.com/qiniu/qshell/releases/download/${{ env.QSHELL_VER }}/${{ matrix.qshell_asset }}"
+                  tar xzf /tmp/${{ matrix.qshell_asset }} -C /tmp/
+                  chmod +x /tmp/${{ matrix.qshell_bin }}
+                  echo "QSHELL_PATH=/tmp/${{ matrix.qshell_bin }}" >> $GITHUB_ENV
+
+            - name: Download & extract qshell (Windows)
+              if: runner.os == 'Windows'
+              shell: pwsh
+              run: |
+                  $asset = "${{ matrix.qshell_asset }}"
+                  $url = "https://github.com/qiniu/qshell/releases/download/${{ env.QSHELL_VER }}/$asset"
+                  $zip = "$env:TEMP\$asset"
+                  curl.exe -sL -o $zip $url
+                  Expand-Archive -Path $zip -DestinationPath $env:TEMP -Force
+                  "QSHELL_PATH=$env:TEMP\${{ matrix.qshell_bin }}" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
             - name: Upload to Qiniu
               shell: bash
