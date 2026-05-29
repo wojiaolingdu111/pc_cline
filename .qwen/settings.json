@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls *)",
+      "Bash(/home/lingdu/pc_clinet/.venv/bin/python *)",
+      "Bash(make *)",
+      "Bash(../.venv/bin/python *)",
+      "Bash(cargo check)",
+      "Bash(apt *)",
+      "Bash(sudo *)",
+      "Bash(find *)",
+      "Bash(rm *)"
+    ]
+  },
+  "$version": 4
+}

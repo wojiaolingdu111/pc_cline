@@ -7,13 +7,6 @@ dist/
 config/secrets.env
 qshell-upload.log
 
-python-backend/.venv/
-python-backend/__pycache__/
-python-backend/app-data/
-python-backend/models/
-python-backend/voices/
-python-backend/services/__pycache__/
-
 src-tauri/target/
 app-data/
 .env.keys

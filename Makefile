@@ -1,9 +1,4 @@
 PNPM ?= pnpm
-PYTHON ?= python3
-PIP ?= $(PYTHON) -m pip
-VENV_DIR ?= .venv
-VENV_PYTHON ?= $(VENV_DIR)/bin/python
-VENV_PIP ?= $(VENV_PYTHON) -m pip
 
 .DEFAULT_GOAL := help
 
