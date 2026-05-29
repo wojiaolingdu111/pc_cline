@@ -64,6 +64,11 @@ jobs:
               with:
                   workspaces: src-tauri
 
+            - name: Install libtorch via Python (for tch-rs / qwen3-tts-rs)
+              run: |
+                  pip install torch torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
+                  echo "LIBTORCH_USE_PYTORCH=1" >> $GITHUB_ENV
+
             - run: pnpm install --frozen-lockfile
 
             - run: pnpm build
