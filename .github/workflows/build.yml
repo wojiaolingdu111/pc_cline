@@ -110,29 +110,39 @@ jobs:
                   TAG="${GITHUB_REF_NAME}"
                   "${QSHELL_PATH}" account "${QINIU_AK}" "${QINIU_SK}" ci-user
 
+                  upload() {
+                    local src="$1" tag_path="$2" latest_path="$3"
+                    "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "${tag_path}" "$src"
+                    "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "${latest_path}" "$src" --overwrite
+                    echo "Uploaded: ${tag_path}  +  ${latest_path}"
+                  }
+
                   case "${{ runner.os }}" in
                     Linux)
-                      find src-tauri/target/release/bundle \
-                        \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \) -type f | while read -r f; do
-                        rel="${f#src-tauri/target/release/bundle/}"
-                        echo "Uploading: linux/${rel}"
-                        "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "pc-clinet/${TAG}/linux/${rel}" "$f"
+                      for f in src-tauri/target/release/bundle/deb/*.deb; do
+                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/linux/$(basename "$f")" "pc-clinet/latest/linux/AI_ToReder_linux_x86_64.deb"
+                      done
+                      for f in src-tauri/target/release/bundle/rpm/*.rpm; do
+                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/linux/$(basename "$f")" "pc-clinet/latest/linux/AI_ToReder_linux_x86_64.rpm"
+                      done
+                      for f in src-tauri/target/release/bundle/appimage/*.AppImage; do
+                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/linux/$(basename "$f")" "pc-clinet/latest/linux/AI_ToReder_linux_x86_64.AppImage"
                       done
                       ;;
                     Windows)
-                      find src-tauri/target/release/bundle \
-                        \( -name '*.exe' -o -name '*.msi' \) -type f | while read -r f; do
-                        rel="${f#src-tauri/target/release/bundle/}"
-                        echo "Uploading: windows/${rel}"
-                        "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "pc-clinet/${TAG}/windows/${rel}" "$f"
+                      for f in src-tauri/target/release/bundle/nsis/*.exe; do
+                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/windows/$(basename "$f")" "pc-clinet/latest/windows/AI_ToReder_windows_x86_64.exe"
+                      done
+                      for f in src-tauri/target/release/bundle/msi/*.msi; do
+                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/windows/$(basename "$f")" "pc-clinet/latest/windows/AI_ToReder_windows_x86_64.msi"
                       done
                       ;;
                     macOS)
-                      find src-tauri/target/release/bundle \
-                        \( -name '*.dmg' -o -name '*.tar.gz' -o -name '*.app' \) -type f | while read -r f; do
-                        rel="${f#src-tauri/target/release/bundle/}"
-                        echo "Uploading: macos/${rel}"
-                        "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "pc-clinet/${TAG}/macos/${rel}" "$f"
+                      for f in src-tauri/target/release/bundle/dmg/*.dmg; do
+                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/macos/$(basename "$f")" "pc-clinet/latest/macos/AI_ToReder_macos_x86_64.dmg"
+                      done
+                      for f in src-tauri/target/release/bundle/macos/*.tar.gz; do
+                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/macos/$(basename "$f")" "pc-clinet/latest/macos/AI_ToReder_macos_x86_64.app.tar.gz"
                       done
                       ;;
                   esac
