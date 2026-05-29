@@ -46,5 +46,4 @@ echo "[3/3] Push tag to $REMOTE"
 git push "$REMOTE" "$TAG"
 
 echo "Release trigger completed for tag $TAG"
-echo "Gitee Go 流水线将自动构建 Linux 安装包并上传至："
-echo "  https://gitee.com/imglingdu/pc_clinet/releases"
+echo "GitHub Actions 将自动构建并上传产物到七牛云。"

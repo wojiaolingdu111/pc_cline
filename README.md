@@ -68,49 +68,45 @@ npm install
 npm run tauri:dev
 ```
 
-## 在 Debian 打包 Windows 和 macOS
+## 在 GitHub Actions 自动打包（推荐）
 
-在 Debian 本机可以打包 Linux 安装包，但通常不能直接产出 macOS 安装包；Windows 安装包也建议在 Windows 环境构建。
-
-## 在 Gitee Go 自动打包（推荐）
-
-推送 `v*` 标签即可触发 Gitee Go 流水线，自动构建 Linux 安装包并上传到 Release：
+推送 `v*` 标签即可触发 GitHub Actions，自动在 Linux / Windows / macOS 上构建安装包并上传到七牛云。
 
 ```bash
-make release VERSION=1.0.1
+make release VERSION=1.0.0
 ```
 
-详细配置见 [.gitee/workflows/build-desktop.yml](.gitee/workflows/build-desktop.yml)。
+详细配置见 [.github/workflows/build.yml](.github/workflows/build.yml)。
 
-- Gitee Go 托管 runner（免费）：自动构建 Linux 安装包（.deb / .rpm / .AppImage）
-- 自建 Windows / macOS runner：取消 CI 中对应 job 的 `if: false` 并配置 `GITEE_TOKEN`
+构建平台：
 
-打包产物自动上传到 Gitee Release：[https://gitee.com/imglingdu/pc_clinet/releases](https://gitee.com/imglingdu/pc_clinet/releases)
+| 平台 | 构建产物 | 上传路径 |
+|------|---------|---------|
+| Ubuntu | .deb / .rpm / .AppImage | `pc-clinet/{tag}/linux/` |
+| Windows | .exe / .msi | `pc-clinet/{tag}/windows/` |
+| macOS | .dmg / .app | `pc-clinet/{tag}/macos/` |
+
+### GitHub Secrets 配置
+
+在 GitHub 仓库 Settings → Secrets and variables → Actions 中添加：
+
+| Secret | 说明 |
+|--------|------|
+| `QINIU_AK` | 七牛云 Access Key |
+| `QINIU_SK` | 七牛云 Secret Key |
+| `QINIU_BUCKET` | 七牛云存储桶名称 |
 
 ### 一键发版
 
 ```bash
-make release VERSION=1.0.1
+make release VERSION=1.0.0
 ```
 
 该命令会调用 [scripts/release.sh](scripts/release.sh)：
 
-1. 推送当前分支到 `origin`
+1. 推送当前分支到远端
 2. 创建并推送标签 `vVERSION`
-3. Gitee Go 检测到标签后自动触发构建
-
-仓库已提供通用构建脚本：[scripts/ci/build_desktop.sh](scripts/ci/build_desktop.sh)
-Windows PowerShell 版本：[scripts/ci/build_desktop.ps1](scripts/ci/build_desktop.ps1)
-
-在不同 runner 上调用：
-
-```bash
-# Windows runner
-pwsh -File scripts/ci/build_desktop.ps1 -Bundles "nsis,msi"
-
-# macOS runner
-bash scripts/ci/build_desktop.sh dmg,app
-```
+3. GitHub Actions 检测到标签后自动构建并上传七牛云
 
 构建产物位于 `src-tauri/target/release/bundle/` 目录。
 

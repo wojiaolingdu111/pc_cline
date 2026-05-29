@@ -1,0 +1,127 @@
+name: Build Desktop Installers
+
+on:
+  push:
+    tags:
+      - v*
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            bundles: deb,rpm,appimage
+            qshell_url: https://devtools.qiniu.com/linux/amd64/qshell
+            qshell_name: qshell
+            artifact_name: linux-bundles
+
+          - os: windows-latest
+            bundles: nsis,msi
+            qshell_url: https://devtools.qiniu.com/windows/amd64/qshell.exe
+            qshell_name: qshell.exe
+            artifact_name: windows-bundles
+
+          - os: macos-latest
+            bundles: dmg,app
+            qshell_url: https://devtools.qiniu.com/darwin/amd64/qshell
+            qshell_name: qshell
+            artifact_name: macos-bundles
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev \
+            librsvg2-dev libfuse2 patchelf
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Build Python sidecar
+        shell: bash
+        run: |
+          pip install pyinstaller
+          make build-sidecar
+
+      - name: Build Tauri bundles
+        run: pnpm exec tauri build --bundles ${{ matrix.bundles }}
+
+      - name: Install qshell
+        shell: bash
+        run: |
+          curl -L -o /tmp/${{ matrix.qshell_name }} "${{ matrix.qshell_url }}"
+          chmod +x /tmp/${{ matrix.qshell_name }}
+
+      - name: Upload to Qiniu
+        shell: bash
+        env:
+          QINIU_AK: ${{ secrets.QINIU_AK }}
+          QINIU_SK: ${{ secrets.QINIU_SK }}
+          QINIU_BUCKET: ${{ secrets.QINIU_BUCKET }}
+          QSHELL: /tmp/${{ matrix.qshell_name }}
+        run: |
+          # 确定平台名
+          case "${{ runner.os }}" in
+            Linux)   PLATFORM=linux   ;;
+            Windows) PLATFORM=windows ;;
+            macOS)   PLATFORM=macos   ;;
+          esac
+
+          TAG="${GITHUB_REF_NAME}"
+          "${QSHELL}" account "${QINIU_AK}" "${QINIU_SK}" ci-user
+
+          find src-tauri/target/release/bundle -type f | while read -r f; do
+            rel="${f#src-tauri/target/release/bundle/}"
+            echo "Uploading: ${rel}"
+            "${QSHELL}" rput "${QINIU_BUCKET}" "pc-clinet/${TAG}/${PLATFORM}/${rel}" "$f"
+          done
