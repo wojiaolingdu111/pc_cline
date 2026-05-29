@@ -39,8 +39,7 @@ jobs:
         runs-on: ${{ matrix.os }}
 
         steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+            - uses: actions/checkout@v4
 
             - name: Install Linux system deps
               if: runner.os == 'Linux'
@@ -51,72 +50,55 @@ jobs:
                     libxdo-dev libssl-dev libayatana-appindicator3-dev \
                     librsvg2-dev libfuse2 patchelf
 
-            - name: Setup Node.js
-              uses: actions/setup-node@v4
+            - uses: actions/setup-node@v4
               with:
                   node-version: 20
 
-            - name: Setup pnpm
-              uses: pnpm/action-setup@v4
+            - uses: pnpm/action-setup@v4
               with:
                   version: 10
 
-            - name: Setup Python
-              uses: actions/setup-python@v5
+            - uses: actions/setup-python@v5
               with:
                   python-version: "3.11"
 
-            - name: Setup Rust
-              uses: dtolnay/rust-toolchain@stable
+            - uses: dtolnay/rust-toolchain@stable
 
-            - name: Rust cache
-              uses: Swatinem/rust-cache@v2
+            - uses: Swatinem/rust-cache@v2
               with:
                   workspaces: src-tauri
 
-            - name: Install frontend deps
-              run: pnpm install --frozen-lockfile
+            - run: pnpm install --frozen-lockfile
 
-            - name: Build frontend
-              run: pnpm build
+            - run: pnpm build
 
-            - name: Build Python sidecar (Linux / macOS)
-              if: runner.os != 'Windows'
+            - name: Build Python sidecar
               run: |
                   pip install pyinstaller
                   cd python-backend
                   python -m PyInstaller aitoreder-backend.spec --clean --distpath ../src-tauri/binaries
 
-            - name: Build Python sidecar (Windows)
-              if: runner.os == 'Windows'
-              shell: pwsh
-              run: |
-                  pip install pyinstaller
-                  cd python-backend
-                  python -m PyInstaller aitoreder-backend.spec --clean --distpath ../src-tauri/binaries
+            - run: pnpm exec tauri build --bundles ${{ matrix.bundles }}
 
-            - name: Build Tauri bundles
-              run: pnpm exec tauri build --bundles ${{ matrix.bundles }}
-
-            - name: Download qshell
+            - name: Download & extract qshell
               shell: bash
               run: |
-                  curl -sL -o /tmp/qshell_asset \
-                    "https://github.com/qiniu/qshell/releases/download/${{ env.QSHELL_VER }}/${{ matrix.qshell_asset }}"
-
-            - name: Extract qshell (tar.gz)
-              if: runner.os != 'Windows'
-              shell: bash
-              run: |
-                  tar xzf /tmp/qshell_asset -C /tmp/
-                  chmod +x /tmp/${{ matrix.qshell_bin }}
-
-            - name: Extract qshell (zip)
-              if: runner.os == 'Windows'
-              shell: pwsh
-              run: |
-                  Expand-Archive -Path /tmp/qshell_asset -DestinationPath /tmp/
-                  chmod +x /tmp/${{ matrix.qshell_bin }}
+                  if [ "${{ runner.os }}" = "Windows" ]; then
+                    # Windows: use PowerShell for zip
+                    pwsh -Command "
+                      \$asset = '${{ matrix.qshell_asset }}'
+                      \$url = 'https://github.com/qiniu/qshell/releases/download/\${{ env.QSHELL_VER }}/\$asset'
+                      curl.exe -sL -o \"\$env:TEMP\\\$asset\" \$url
+                      Expand-Archive -Path \"\$env:TEMP\\\$asset\" -DestinationPath \$env:TEMP -Force
+                    "
+                    echo "QSHELL_PATH=$env:TEMP\\${{ matrix.qshell_bin }}" >> $GITHUB_ENV
+                  else
+                    curl -sL -o /tmp/${{ matrix.qshell_asset }} \
+                      "https://github.com/qiniu/qshell/releases/download/${{ env.QSHELL_VER }}/${{ matrix.qshell_asset }}"
+                    tar xzf /tmp/${{ matrix.qshell_asset }} -C /tmp/
+                    chmod +x /tmp/${{ matrix.qshell_bin }}
+                    echo "QSHELL_PATH=/tmp/${{ matrix.qshell_bin }}" >> $GITHUB_ENV
+                  fi
 
             - name: Upload to Qiniu
               shell: bash
@@ -124,13 +106,20 @@ jobs:
                   QINIU_AK: ${{ secrets.QINIU_AK }}
                   QINIU_SK: ${{ secrets.QINIU_SK }}
                   QINIU_BUCKET: ${{ secrets.QINIU_BUCKET }}
-                  QSHELL: /tmp/${{ matrix.qshell_bin }}
               run: |
                   TAG="${GITHUB_REF_NAME}"
-                  "${QSHELL}" account "${QINIU_AK}" "${QINIU_SK}" ci-user
+                  "${QSHELL_PATH}" account "${QINIU_AK}" "${QINIU_SK}" ci-user
 
-                  find src-tauri/target/release/bundle -type f | while read -r f; do
-                    rel="${f#src-tauri/target/release/bundle/}"
-                    echo "Uploading: ${PLATFORM}/${rel}"
-                    "${QSHELL}" rput "${QINIU_BUCKET}" "pc-clinet/${TAG}/${{ matrix.platform }}/${rel}" "$f"
-                  done
+                  if [ "${{ runner.os }}" = "Windows" ]; then
+                    find . -path './src-tauri/target/release/bundle/*' -type f | while read -r f; do
+                      rel="${f#./src-tauri/target/release/bundle/}"
+                      echo "Uploading: windows/${rel}"
+                      "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "pc-clinet/${TAG}/windows/${rel}" "$f"
+                    done
+                  else
+                    find src-tauri/target/release/bundle -type f | while read -r f; do
+                      rel="${f#src-tauri/target/release/bundle/}"
+                      echo "Uploading: ${{ matrix.platform }}/${rel}"
+                      "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "pc-clinet/${TAG}/${{ matrix.platform }}/${rel}" "$f"
+                    done
+                  fi
