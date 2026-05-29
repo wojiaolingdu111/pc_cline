@@ -9,6 +9,9 @@ on:
 permissions:
     contents: write
 
+env:
+    QSHELL_VER: v2.19.7
+
 jobs:
     build:
         strategy:
@@ -17,21 +20,21 @@ jobs:
                 include:
                     - os: ubuntu-latest
                       bundles: deb,rpm,appimage
-                      qshell_url: https://devtools.qiniu.com/linux/amd64/qshell
-                      qshell_name: qshell
-                      artifact_name: linux-bundles
+                      qshell_asset: qshell-v2.19.7-linux-amd64.tar.gz
+                      qshell_bin: qshell
+                      platform: linux
 
                     - os: windows-latest
                       bundles: nsis,msi
-                      qshell_url: https://devtools.qiniu.com/windows/amd64/qshell.exe
-                      qshell_name: qshell.exe
-                      artifact_name: windows-bundles
+                      qshell_asset: qshell-v2.19.7-windows-amd64.zip
+                      qshell_bin: qshell.exe
+                      platform: windows
 
                     - os: macos-latest
                       bundles: dmg,app
-                      qshell_url: https://devtools.qiniu.com/darwin/amd64/qshell
-                      qshell_name: qshell
-                      artifact_name: macos-bundles
+                      qshell_asset: qshell-v2.19.7-darwin-amd64.tar.gz
+                      qshell_bin: qshell
+                      platform: macos
 
         runs-on: ${{ matrix.os }}
 
@@ -71,16 +74,6 @@ jobs:
               with:
                   workspaces: src-tauri
 
-            - name: pnpm cache
-              uses: actions/cache@v4
-              with:
-                  path: |
-                      ~/.local/share/pnpm/store
-                      node_modules
-                  key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
-                  restore-keys: |
-                      ${{ runner.os }}-pnpm-
-
             - name: Install frontend deps
               run: pnpm install --frozen-lockfile
 
@@ -89,10 +82,10 @@ jobs:
 
             - name: Build Python sidecar (Linux / macOS)
               if: runner.os != 'Windows'
-              shell: bash
               run: |
                   pip install pyinstaller
-                  make build-sidecar
+                  cd python-backend
+                  python -m PyInstaller aitoreder-backend.spec --clean --distpath ../src-tauri/binaries
 
             - name: Build Python sidecar (Windows)
               if: runner.os == 'Windows'
@@ -105,11 +98,25 @@ jobs:
             - name: Build Tauri bundles
               run: pnpm exec tauri build --bundles ${{ matrix.bundles }}
 
-            - name: Install qshell
+            - name: Download qshell
               shell: bash
               run: |
-                  curl -L -o /tmp/${{ matrix.qshell_name }} "${{ matrix.qshell_url }}"
-                  chmod +x /tmp/${{ matrix.qshell_name }}
+                  curl -sL -o /tmp/qshell_asset \
+                    "https://github.com/qiniu/qshell/releases/download/${{ env.QSHELL_VER }}/${{ matrix.qshell_asset }}"
+
+            - name: Extract qshell (tar.gz)
+              if: runner.os != 'Windows'
+              shell: bash
+              run: |
+                  tar xzf /tmp/qshell_asset -C /tmp/
+                  chmod +x /tmp/${{ matrix.qshell_bin }}
+
+            - name: Extract qshell (zip)
+              if: runner.os == 'Windows'
+              shell: pwsh
+              run: |
+                  Expand-Archive -Path /tmp/qshell_asset -DestinationPath /tmp/
+                  chmod +x /tmp/${{ matrix.qshell_bin }}
 
             - name: Upload to Qiniu
               shell: bash
@@ -117,20 +124,13 @@ jobs:
                   QINIU_AK: ${{ secrets.QINIU_AK }}
                   QINIU_SK: ${{ secrets.QINIU_SK }}
                   QINIU_BUCKET: ${{ secrets.QINIU_BUCKET }}
-                  QSHELL: /tmp/${{ matrix.qshell_name }}
+                  QSHELL: /tmp/${{ matrix.qshell_bin }}
               run: |
-                  # 确定平台名
-                  case "${{ runner.os }}" in
-                    Linux)   PLATFORM=linux   ;;
-                    Windows) PLATFORM=windows ;;
-                    macOS)   PLATFORM=macos   ;;
-                  esac
-
                   TAG="${GITHUB_REF_NAME}"
                   "${QSHELL}" account "${QINIU_AK}" "${QINIU_SK}" ci-user
 
                   find src-tauri/target/release/bundle -type f | while read -r f; do
                     rel="${f#src-tauri/target/release/bundle/}"
-                    echo "Uploading: ${rel}"
-                    "${QSHELL}" rput "${QINIU_BUCKET}" "pc-clinet/${TAG}/${PLATFORM}/${rel}" "$f"
+                    echo "Uploading: ${PLATFORM}/${rel}"
+                    "${QSHELL}" rput "${QINIU_BUCKET}" "pc-clinet/${TAG}/${{ matrix.platform }}/${rel}" "$f"
                   done
