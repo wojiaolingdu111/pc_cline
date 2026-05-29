@@ -4,6 +4,8 @@ dist/
 *.log
 .env
 .DS_Store
+config/secrets.env
+qshell-upload.log
 
 python-backend/.venv/
 python-backend/__pycache__/

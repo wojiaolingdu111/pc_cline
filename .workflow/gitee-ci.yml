@@ -1,0 +1,155 @@
+version: '1.0'
+name: gitee-ci
+displayName: 构建并上传七牛云
+stages:
+  # ===========================================================================
+  # Linux 构建
+  # ===========================================================================
+  - stage:
+    name: build_linux
+    displayName: Linux 构建
+    steps:
+      - step: build@shell
+        name: install_deps
+        displayName: 安装系统依赖
+        commands:
+          - apt-get update && apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libfuse2 patchelf unzip
+        artifacts: []
+
+      - step: build@shell
+        name: setup_node
+        displayName: 安装 Node.js 20 + pnpm
+        commands:
+          - curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs
+          - npm install -g pnpm@10
+        artifacts: []
+
+      - step: build@shell
+        name: setup_rust
+        displayName: 安装 Rust
+        commands:
+          - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          - source "$HOME/.cargo/env" && rustup default stable
+        artifacts: []
+
+      - step: build@shell
+        name: install_qshell
+        displayName: 安装 qshell
+        commands:
+          - curl -L -o /usr/local/bin/qshell "https://devtools.qiniu.com/linux/amd64/qshell"
+          - chmod +x /usr/local/bin/qshell
+        artifacts: []
+
+      - step: build@shell
+        name: build_linux
+        displayName: 构建前端 + sidecar + Tauri
+        commands:
+          - pnpm install
+          - pnpm build
+          - pip install pyinstaller
+          - make build-sidecar
+          - source "$HOME/.cargo/env" && pnpm exec tauri build --bundles deb,rpm,appimage
+        artifacts:
+          - name: LINUX_ARTIFACTS
+            path:
+              - ./src-tauri/target/release/bundle
+
+      - step: build@shell
+        name: upload_qiniu
+        displayName: 上传 Linux 产物到七牛云
+        commands:
+          - qshell account "${QINIU_AK}" "${QINIU_SK}" ci-user
+          - for f in $(find src-tauri/target/release/bundle -type f); do
+              rel="${f#src-tauri/target/release/bundle/}";
+              qshell rput "${QINIU_BUCKET}" "pc-clinet/${GITEE_TAG}/linux/${rel}" "$f";
+            done
+        artifacts: []
+
+      - step: build@shell
+        name: trigger_macos
+        displayName: 触发 GitHub Actions macOS 构建
+        commands:
+          - >
+            curl -s -X POST "https://api.github.com/repos/${GH_REPO}/dispatches"
+            -H "Accept: application/vnd.github+json"
+            -H "Authorization: Bearer ${GITHUB_PAT}"
+            -H "Content-Type: application/json"
+            -d '{
+              "event_type": "gitee-release",
+              "client_payload": {
+                "gitee_repo": "${GITEE_REPO}",
+                "gitee_ref": "${GITEE_TAG}",
+                "gitee_username": "${GITEE_USERNAME}",
+                "gitee_token": "${GITEE_TOKEN}",
+                "qiniu_ak": "${QINIU_AK}",
+                "qiniu_sk": "${QINIU_SK}",
+                "qiniu_bucket": "${QINIU_BUCKET}"
+              }
+            }'
+        artifacts: []
+
+  # ===========================================================================
+  # Windows 构建
+  # ===========================================================================
+  - stage:
+    name: build_windows
+    displayName: Windows 构建
+    # 需要自建 Windows runner，否则此 stage 不会执行
+    agent:
+      labels: windows
+    steps:
+      - step: build@shell
+        name: install_qshell
+        displayName: 安装 qshell
+        commands:
+          - curl -L -o C:\Windows\qshell.exe "https://devtools.qiniu.com/windows/amd64/qshell.exe"
+        artifacts: []
+
+      - step: build@shell
+        name: setup_node
+        displayName: 安装 Node.js 20 + pnpm
+        commands:
+          - choco install -y nodejs-lts --version=20
+          - npm install -g pnpm@10
+        artifacts: []
+
+      - step: build@shell
+        name: setup_rust
+        displayName: 安装 Rust
+        commands:
+          - choco install -y rustup.install
+          - rustup default stable
+        artifacts: []
+
+      - step: build@shell
+        name: build_windows
+        displayName: 构建前端 + sidecar + Tauri
+        commands:
+          - pnpm install
+          - pnpm build
+          - pip install pyinstaller
+          - make build-sidecar
+          - pnpm exec tauri build --bundles nsis,msi
+        artifacts:
+          - name: WIN_ARTIFACTS
+            path:
+              - ./src-tauri/target/release/bundle
+
+      - step: build@shell
+        name: upload_qiniu
+        displayName: 上传 Windows 产物到七牛云
+        commands:
+          - qshell account "%QINIU_AK%" "%QINIU_SK%" ci-user
+          - >
+            for /r src-tauri\target\release\bundle %%f in (*) do (
+              set "rel=%%f"
+              set "rel=!rel:src-tauri\target\release\bundle\=!"
+              qshell rput "%QINIU_BUCKET%" "pc-clinet/%GITEE_TAG%/windows/!rel!" "%%f"
+            )
+        artifacts: []
+
+triggers:
+  push:
+    tags:
+      include:
+        - v*
