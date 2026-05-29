@@ -91,7 +91,13 @@
       "Bash(3. *)",
       "Bash(4. *)",
       "Bash(5. *)",
-      "Bash(skilleof)"
+      "Bash(skilleof)",
+      "Bash(git describe *)",
+      "Bash(git tag)",
+      "Bash(git push *)",
+      "Bash(git remote *)",
+      "Bash(git config *)",
+      "Bash(grep *)"
     ]
   },
   "$version": 4
