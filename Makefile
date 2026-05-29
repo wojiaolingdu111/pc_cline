@@ -62,7 +62,7 @@ tauri-build:
 build-windows:
 	@if [ "$(OS)" != "Windows_NT" ]; then \
 		echo "当前主机不是 Windows，无法本地打包 Windows 安装包。"; \
-		echo "请使用 GitHub Actions: .github/workflows/build-desktop.yml"; \
+		echo "请使用 Gitee Go 流水线或自建 Windows runner 打包。"; \
 		exit 1; \
 	fi
 	$(PNPM) exec tauri build --bundles nsis,msi
@@ -73,7 +73,7 @@ build-linux:
 build-mac:
 	@if [ "$$(uname -s)" != "Darwin" ]; then \
 		echo "当前主机不是 macOS，无法本地打包 macOS 安装包。"; \
-		echo "请使用 GitHub Actions: .github/workflows/build-desktop.yml"; \
+		echo "请使用 Gitee Go 流水线或自建 macOS runner 打包。"; \
 		exit 1; \
 	fi
 	$(PNPM) exec tauri build --bundles dmg,app

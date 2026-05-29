@@ -1,69 +1,124 @@
-name: Build Desktop Installers (Gitee)
+name: Build Desktop Installers
 
 on:
-  push:
-    tags:
-      - v*
+    push:
+        tags:
+            - v*
 
 jobs:
-  build_windows:
-    name: Build Windows Bundles
-    # 需要你在 Gitee 上配置带有 windows 标签的自建 runner
-    runs-on: [self-hosted, windows]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    # Linux — Gitee Go 托管 runner（免费）
+    build_linux:
+        name: Build Linux Bundles
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+            - name: Install system dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y \
+                    libwebkit2gtk-4.1-dev build-essential curl wget file \
+                    libxdo-dev libssl-dev libayatana-appindicator3-dev \
+                    librsvg2-dev libfuse2 patchelf
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 10
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+            - name: Setup Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.11"
 
-      - name: Build Windows installers
-        shell: pwsh
-        run: |
-          ./scripts/ci/build_desktop.ps1 -Bundles "nsis,msi"
+            - name: Setup Rust
+              uses: dtolnay/rust-toolchain@stable
 
-  build_macos:
-    name: Build macOS Bundles
-    # 需要你在 Gitee 上配置带有 macos 标签的自建 runner
-    runs-on: [self-hosted, macos]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+            - name: Build Python sidecar
+              run: |
+                  pip install pyinstaller
+                  make build-sidecar
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+            - name: Build Tauri (Linux)
+              run: pnpm exec tauri build --bundles deb,rpm,appimage
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
+            - name: Upload to Gitee Release
+              env:
+                  GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+              run: |
+                  TAG="${GITHUB_REF_NAME}"
+                  REPO="imglingdu/pc_clinet"
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+                  # 创建 Release
+                  curl -s -X POST \
+                    -H "Authorization: token ${GITEE_TOKEN}" \
+                    -H "Content-Type: application/json" \
+                    "https://gitee.com/api/v5/repos/${REPO}/releases" \
+                    -d "{\"tag_name\":\"${TAG}\",\"name\":\"${TAG}\",\"body\":\"AI ToReder ${TAG} 发布\",\"prerelease\":false}"
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+                  # 上传产物
+                  for file in src-tauri/target/release/bundle/deb/*.deb \
+                              src-tauri/target/release/bundle/rpm/*.rpm \
+                              src-tauri/target/release/bundle/appimage/*.AppImage; do
+                    [ -f "$file" ] || continue
+                    filename=$(basename "$file")
+                    echo "Uploading: $filename"
+                    curl -s -X POST \
+                      -H "Authorization: token ${GITEE_TOKEN}" \
+                      -F "file=@${file}" \
+                      -F "filename=${filename}" \
+                      "https://gitee.com/api/v5/repos/${REPO}/releases/latest/files"
+                  done
 
-      - name: Build macOS installers
-        shell: bash
-        run: |
-          bash scripts/ci/build_desktop.sh dmg,app
+    # Windows — 自建 runner（可选）
+    build_windows:
+        name: Build Windows Bundles
+        if: false # 需要自建 Windows runner 时改为 true，并配置 secrets.GITEE_TOKEN
+        runs-on: [self-hosted, windows]
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 10
+
+            - name: Setup Rust
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Setup Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.11"
+
+            - name: Build Windows installers
+              shell: pwsh
+              run: ./scripts/ci/build_desktop.ps1 -Bundles "nsis,msi"
+
+            - name: Upload to Gitee Release
+              env:
+                  GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+              shell: pwsh
+              run: |
+                  $TAG = $env:GITHUB_REF_NAME
+                  $REPO = "imglingdu/pc_clinet"
+                  Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe" | ForEach-Object {
+                    curl.exe -s -X POST -H "Authorization: token $env:GITEE_TOKEN" `
+                      -F "file=@${_}" -F "filename=$($_.Name)" `
+                      "https://gitee.com/api/v5/repos/$REPO/releases/latest/files"
+                  }
+                  Get-ChildItem "src-tauri/target/release/bundle/msi/*.msi" | ForEach-Object {
+                    curl.exe -s -X POST -H "Authorization: token $env:GITEE_TOKEN" `
+                      -F "file=@${_}" -F "filename=$($_.Name)" `
+                      "https://gitee.com/api/v5/repos/$REPO/releases/latest/files"
+                  }

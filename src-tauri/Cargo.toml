@@ -2,7 +2,7 @@
 name = "ai_toreder"
 version = "0.1.0"
 description = "Local desktop TTS workbench powered by Tauri + Rust + Python"
-authors = ["GitHub Copilot"]
+authors = ["imglingdu"]
 edition = "2021"
 
 [lib]

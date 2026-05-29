@@ -72,29 +72,22 @@ npm run tauri:dev
 
 在 Debian 本机可以打包 Linux 安装包，但通常不能直接产出 macOS 安装包；Windows 安装包也建议在 Windows 环境构建。
 
-本仓库已提供 GitHub Actions 工作流：[.github/workflows/build-desktop.yml](.github/workflows/build-desktop.yml)
+## 在 Gitee Go 自动打包（推荐）
 
-- `windows-latest` 产出：`nsis` + `msi`
-- `macos-latest` 产出：`dmg` + `app`
-- 同时会在对应系统内构建 Python sidecar（PyInstaller）并打入 Tauri 资源目录
+推送 `v*` 标签即可触发 Gitee Go 流水线，自动构建 Linux 安装包并上传到 Release：
 
-使用方式：
+```bash
+make release VERSION=1.0.1
+```
 
-1. 推送代码到 GitHub。
-2. 打开 Actions，运行 `Build Desktop Installers`（支持手动触发 `workflow_dispatch`）。
-3. 在每个 job 的 Artifacts 下载安装包。
+详细配置见 [.gitee/workflows/build-desktop.yml](.gitee/workflows/build-desktop.yml)。
 
-自动发布方式：
+- Gitee Go 托管 runner（免费）：自动构建 Linux 安装包（.deb / .rpm / .AppImage）
+- 自建 Windows / macOS runner：取消 CI 中对应 job 的 `if: false` 并配置 `GITEE_TOKEN`
 
-1. 在本地创建并推送版本标签（例如 `v0.1.0`）。
-2. 工作流会自动构建 Win/Mac 安装包。
-3. 构建产物会自动上传到同名 GitHub Release 附件。
+打包产物自动上传到 Gitee Release：[https://gitee.com/imglingdu/pc_clinet/releases](https://gitee.com/imglingdu/pc_clinet/releases)
 
-如果你要发布给最终用户，还需要后续补充签名与公证流程（尤其是 macOS）。
-
-### Debian 一键发版
-
-如果你已配置好远端（至少 `origin`），可直接使用：
+### 一键发版
 
 ```bash
 make release VERSION=1.0.1
@@ -104,21 +97,10 @@ make release VERSION=1.0.1
 
 1. 推送当前分支到 `origin`
 2. 创建并推送标签 `vVERSION`
-3. 如果存在 `github` 远端，再额外推送到 `github`
-
-这样就能在 Debian 端完成发版触发，不需要本机构建 Win/Mac。
-
-## Gitee 方案（不依赖 GitHub）
-
-可以，只要你的 Gitee 流水线具备原生 runner：
-
-- Windows runner: 构建 `nsis` 和 `msi`
-- macOS runner: 构建 `dmg` 和 `app`
+3. Gitee Go 检测到标签后自动触发构建
 
 仓库已提供通用构建脚本：[scripts/ci/build_desktop.sh](scripts/ci/build_desktop.sh)
-Windows PowerShell 版本脚本：[scripts/ci/build_desktop.ps1](scripts/ci/build_desktop.ps1)
-并提供可直接使用的 Gitee 工作流模板：[.gitee/workflows/build-desktop.yml](.gitee/workflows/build-desktop.yml)
-以及 Gitee 镜像到 GitHub 的完整步骤：[docs/gitee-github-mirror.md](docs/gitee-github-mirror.md)
+Windows PowerShell 版本：[scripts/ci/build_desktop.ps1](scripts/ci/build_desktop.ps1)
 
 在不同 runner 上调用：
 
@@ -130,11 +112,7 @@ pwsh -File scripts/ci/build_desktop.ps1 -Bundles "nsis,msi"
 bash scripts/ci/build_desktop.sh dmg,app
 ```
 
-构建完成后，从以下目录收集产物并上传到你的 Gitee 制品库或发布页：
-
-- `src-tauri/target/release/bundle/`
-
-提示：Windows runner 推荐直接用 PowerShell 脚本；macOS runner 使用 Bash 脚本。
+构建产物位于 `src-tauri/target/release/bundle/` 目录。
 
 ## 后续接入 Coqui TTS
 
