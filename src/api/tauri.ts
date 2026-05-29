@@ -45,7 +45,7 @@ export interface VoicesResponse {
 
 export interface ServiceStatus {
     running: boolean;
-    mode: "coqui" | "qwen3";
+    mode: "qwen3";
     modelLoaded: boolean;
     message: string;
 }
