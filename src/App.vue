@@ -26,7 +26,6 @@ const activating = ref(false);
 
 const serviceBadge = computed(() => {
     if (settingsStore.serviceStatus.running) return "服务运行中";
-    if (settingsStore.serviceStatus.mode === "offline") return "浏览器预览模式";
     return "服务未连接";
 });
 

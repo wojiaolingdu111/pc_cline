@@ -31,7 +31,6 @@
             "icons/icon.png",
             "icons/512x512.png",
             "icons/256x256.png"
-        ],
-        "resources": ["binaries/aitoreder-backend/"]
+        ]
     }
 }

@@ -1,7 +1,6 @@
 mod commands;
 mod file_manager;
 mod license;
-mod python_service;
 mod state;
 
 use anyhow::Result;
