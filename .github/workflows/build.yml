@@ -110,16 +110,29 @@ jobs:
                   TAG="${GITHUB_REF_NAME}"
                   "${QSHELL_PATH}" account "${QINIU_AK}" "${QINIU_SK}" ci-user
 
-                  if [ "${{ runner.os }}" = "Windows" ]; then
-                    find . -path './src-tauri/target/release/bundle/*' -type f | while read -r f; do
-                      rel="${f#./src-tauri/target/release/bundle/}"
-                      echo "Uploading: windows/${rel}"
-                      "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "pc-clinet/${TAG}/windows/${rel}" "$f"
-                    done
-                  else
-                    find src-tauri/target/release/bundle -type f | while read -r f; do
-                      rel="${f#src-tauri/target/release/bundle/}"
-                      echo "Uploading: ${{ matrix.platform }}/${rel}"
-                      "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "pc-clinet/${TAG}/${{ matrix.platform }}/${rel}" "$f"
-                    done
-                  fi
+                  case "${{ runner.os }}" in
+                    Linux)
+                      find src-tauri/target/release/bundle \
+                        \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \) -type f | while read -r f; do
+                        rel="${f#src-tauri/target/release/bundle/}"
+                        echo "Uploading: linux/${rel}"
+                        "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "pc-clinet/${TAG}/linux/${rel}" "$f"
+                      done
+                      ;;
+                    Windows)
+                      find src-tauri/target/release/bundle \
+                        \( -name '*.exe' -o -name '*.msi' \) -type f | while read -r f; do
+                        rel="${f#src-tauri/target/release/bundle/}"
+                        echo "Uploading: windows/${rel}"
+                        "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "pc-clinet/${TAG}/windows/${rel}" "$f"
+                      done
+                      ;;
+                    macOS)
+                      find src-tauri/target/release/bundle \
+                        \( -name '*.dmg' -o -name '*.tar.gz' -o -name '*.app' \) -type f | while read -r f; do
+                        rel="${f#src-tauri/target/release/bundle/}"
+                        echo "Uploading: macos/${rel}"
+                        "${QSHELL_PATH}" rput "${QINIU_BUCKET}" "pc-clinet/${TAG}/macos/${rel}" "$f"
+                      done
+                      ;;
+                  esac
