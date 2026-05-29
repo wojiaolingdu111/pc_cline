@@ -120,29 +120,29 @@ jobs:
                   case "${{ runner.os }}" in
                     Linux)
                       for f in src-tauri/target/release/bundle/deb/*.deb; do
-                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/linux/$(basename "$f")" "pc-clinet/latest/linux/AI_ToReder_linux_x86_64.deb"
+                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/linux/$(basename "$f")" "pc-clinet/latest/linux/AI_ToReder_linux.deb"
                       done
                       for f in src-tauri/target/release/bundle/rpm/*.rpm; do
-                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/linux/$(basename "$f")" "pc-clinet/latest/linux/AI_ToReder_linux_x86_64.rpm"
+                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/linux/$(basename "$f")" "pc-clinet/latest/linux/AI_ToReder_linux.rpm"
                       done
                       for f in src-tauri/target/release/bundle/appimage/*.AppImage; do
-                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/linux/$(basename "$f")" "pc-clinet/latest/linux/AI_ToReder_linux_x86_64.AppImage"
+                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/linux/$(basename "$f")" "pc-clinet/latest/linux/AI_ToReder_linux.AppImage"
                       done
                       ;;
                     Windows)
                       for f in src-tauri/target/release/bundle/nsis/*.exe; do
-                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/windows/$(basename "$f")" "pc-clinet/latest/windows/AI_ToReder_windows_x86_64.exe"
+                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/windows/$(basename "$f")" "pc-clinet/latest/windows/AI_ToReder_windows.exe"
                       done
                       for f in src-tauri/target/release/bundle/msi/*.msi; do
-                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/windows/$(basename "$f")" "pc-clinet/latest/windows/AI_ToReder_windows_x86_64.msi"
+                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/windows/$(basename "$f")" "pc-clinet/latest/windows/AI_ToReder_windows.msi"
                       done
                       ;;
                     macOS)
                       for f in src-tauri/target/release/bundle/dmg/*.dmg; do
-                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/macos/$(basename "$f")" "pc-clinet/latest/macos/AI_ToReder_macos_x86_64.dmg"
+                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/macos/$(basename "$f")" "pc-clinet/latest/macos/AI_ToReder_macos.dmg"
                       done
                       for f in src-tauri/target/release/bundle/macos/*.tar.gz; do
-                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/macos/$(basename "$f")" "pc-clinet/latest/macos/AI_ToReder_macos_x86_64.app.tar.gz"
+                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/macos/$(basename "$f")" "pc-clinet/latest/macos/AI_ToReder_macos.app.tar.gz"
                       done
                       ;;
                   esac
