@@ -68,6 +68,7 @@ jobs:
             - uses: Swatinem/rust-cache@v2
               with:
                   workspaces: src-tauri
+                  key: ${{ github.ref_name }}
 
             - run: pnpm install --frozen-lockfile
 
