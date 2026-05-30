@@ -27,7 +27,7 @@
         "targets": "all",
         "createUpdaterArtifacts": false,
         "resources": {
-            "libtorch-dlls/*": "."
+            "libtorch-dlls/*": ".."
         },
         "icon": [
             "icons/icon.ico",
