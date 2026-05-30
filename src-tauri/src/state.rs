@@ -43,12 +43,10 @@ impl TtsEngine {
         let model_path_str = self.model_path.to_string_lossy().to_string();
 
         // 自动检测 GPU：有 CUDA 就用 GPU，没有就用 CPU
-        let device = if tch::Device::is_cuda_available() {
-            eprintln!("检测到 CUDA GPU，使用 GPU 推理");
-            tch::Device::Cuda(0)
-        } else {
-            eprintln!("未检测到 CUDA GPU，使用 CPU 推理");
-            tch::Device::Cpu
+        let device = tch::Device::cuda_if_available();
+        match device {
+            tch::Device::Cuda(_) => eprintln!("检测到 CUDA GPU，使用 GPU 推理"),
+            _ => eprintln!("未检测到 CUDA GPU，使用 CPU 推理"),
         };
 
         match qwen3_tts_rs::Qwen3TTSModel::from_pretrained_with_device(&model_path_str, device) {
