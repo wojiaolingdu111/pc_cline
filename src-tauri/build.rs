@@ -1,16 +1,18 @@
 use std::path::{Path, PathBuf};
 
 fn main() {
-    tauri_build::build();
+    // Must create the resource directory BEFORE tauri_build::build(),
+    // otherwise the resources glob validation in tauri.conf.json fails.
+    ensure_libtorch_resources();
 
-    copy_libtorch_libs();
+    tauri_build::build();
 }
 
 // ---------------------------------------------------------------------------
-// Cross-platform: find libtorch libraries and copy them for bundling
+// Cross-platform: ensure libtorch libraries are available for bundling
 // ---------------------------------------------------------------------------
 
-fn copy_libtorch_libs() {
+fn ensure_libtorch_resources() {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     // OUT_DIR = target/<profile>/build/<crate>/out
     let profile_dir = out_dir
@@ -38,27 +40,29 @@ fn copy_libtorch_libs() {
     let lib_dir = match lib_dir {
         Some(d) => d,
         None => {
+            // Dotfile to ensure glob matches at least one entry on non-Windows
+            if let Some(ref dir) = resources_dir {
+                let _ = std::fs::write(dir.join(".gitkeep"), "");
+            }
             println!("cargo:warning=libtorch libraries not found — skipping copy");
             return;
         }
     };
 
     println!("cargo:warning=Found libtorch at: {}", lib_dir.display());
+    let ext = platform_lib_extension();
 
     // Copy to target/<profile>/ for cargo run / tauri dev
-    copy_libs_to(
-        &lib_dir,
-        &profile_dir,
-        platform_lib_extension(),
-    );
+    copy_libs_to(&lib_dir, &profile_dir, ext);
 
     // Copy to resources dir for Tauri bundler
     if let Some(ref res_dir) = resources_dir {
-        copy_libs_to(
-            &lib_dir,
-            res_dir,
-            platform_lib_extension(),
-        );
+        copy_libs_to(&lib_dir, res_dir, ext);
+    }
+
+    // Dotfile so glob always matches (only matters if no libs were copied)
+    if let Some(ref dir) = resources_dir {
+        let _ = std::fs::write(dir.join(".gitkeep"), "");
     }
 }
 
@@ -137,7 +141,9 @@ fn platform_libtorch_marker() -> &'static str {
     if cfg!(target_os = "windows") {
         "torch_cpu.dll"
     } else if cfg!(target_os = "macos") {
-        "libtorch_cpu.dylib"
+        // macOS may have libtorch.dylib as the main shared library
+        // (libtorch_cpu.dylib may not exist as a separate file)
+        "libtorch.dylib"
     } else {
         "libtorch_cpu.so"
     }
