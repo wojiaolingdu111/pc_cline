@@ -49,7 +49,10 @@ impl TtsEngine {
             _ => eprintln!("未检测到 CUDA GPU，使用 CPU 推理"),
         };
 
-        match qwen3_tts_rs::Qwen3TTSModel::from_pretrained_with_device(&model_path_str, device) {
+        match qwen3_tts_rs::Qwen3TTSModel::from_pretrained_with_device(
+            &model_path_str,
+            device.into(),
+        ) {
             Ok(model) => {
                 self.model = Some(model);
                 Ok(self.model.as_ref().unwrap())
