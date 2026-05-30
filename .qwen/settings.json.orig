@@ -96,7 +96,9 @@
       "Bash(git tag)",
       "Bash(git push *)",
       "Bash(git remote *)",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "Bash(grep *)",
+      "Bash(git ls-remote *)"
     ]
   },
   "$version": 4
