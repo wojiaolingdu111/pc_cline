@@ -8,6 +8,7 @@ config/secrets.env
 qshell-upload.log
 
 src-tauri/target/
+src-tauri/libtorch-dlls/
 app-data/
 .env.keys
 
