@@ -27,3 +27,6 @@ tch = "0.20"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+[patch.crates-io]
+esaxx-rs = { path = "../patches/esaxx-rs" }
