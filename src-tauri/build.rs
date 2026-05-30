@@ -28,8 +28,8 @@ fn ensure_libtorch_resources() {
     // Path for Tauri bundler resources (relative to src-tauri/)
     let resources_dir = profile_dir
         .parent() // target
-        .and_then(|p| p.parent()) // project root
-        .map(|p| p.join("src-tauri").join("libtorch-dlls"));
+        .and_then(|p| p.parent()) // src-tauri (where tauri.conf.json is)
+        .map(|p| p.join("libtorch-dlls"));
 
     // Always create the directory so tauri.conf.json resource glob doesn't fail
     if let Some(ref dir) = resources_dir {
