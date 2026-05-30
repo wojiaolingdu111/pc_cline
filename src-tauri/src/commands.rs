@@ -1,7 +1,6 @@
 use qwen3_tts_rs::{Language, Speaker, GenerationParams};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::sync::Mutex;
 use tauri::State;
 
 use crate::license::{LicenseInfo, ACTIVATE_URL};
@@ -83,9 +82,9 @@ pub struct CloneVoicePayload {
 // ---------------------------------------------------------------------------
 
 #[tauri::command]
-pub async fn get_service_status(state: State<'_, AppState>) -> ServiceStatus {
+pub async fn get_service_status(state: State<'_, AppState>) -> Result<ServiceStatus, String> {
     let engine = state.tts_engine.lock().unwrap();
-    ServiceStatus {
+    Ok(ServiceStatus {
         running: engine.is_loaded(),
         mode: "qwen3".to_string(),
         model_loaded: engine.is_loaded(),
@@ -96,11 +95,11 @@ pub async fn get_service_status(state: State<'_, AppState>) -> ServiceStatus {
         } else {
             "模型未加载，请将 Qwen3-TTS 模型文件放入 models/ 目录".to_string()
         },
-    }
+    })
 }
 
 #[tauri::command]
-pub async fn list_voices(state: State<'_, AppState>) -> VoicesPayload {
+pub async fn list_voices(state: State<'_, AppState>) -> Result<VoicesPayload, String> {
     let mut engine = state.tts_engine.lock().unwrap();
 
     // Built-in voices from the loaded model
@@ -168,17 +167,17 @@ pub async fn list_voices(state: State<'_, AppState>) -> VoicesPayload {
     // Custom voices from profiles directory
     let custom_voices = load_custom_voice_profiles(&state.directories.voices);
 
-    VoicesPayload {
+    Ok(VoicesPayload {
         builtin_voices,
         custom_voices,
-    }
+    })
 }
 
 #[tauri::command]
 pub async fn generate_speech(
     payload: GenerateSpeechPayload,
     state: State<'_, AppState>,
-) -> GenerateSpeechResult {
+) -> Result<GenerateSpeechResult, String> {
     let task_id = format!("tts-{}", chrono_now_ms());
     let start = std::time::Instant::now();
 
@@ -193,13 +192,13 @@ pub async fn generate_speech(
     let model = match engine.get_model() {
         Ok(m) => m,
         Err(e) => {
-            return GenerateSpeechResult {
+            return Ok(GenerateSpeechResult {
                 task_id,
                 status: "failed".to_string(),
                 audio_path: None,
                 error: Some(e),
                 duration_ms: start.elapsed().as_millis(),
-            };
+            });
         }
     };
 
@@ -257,45 +256,45 @@ pub async fn generate_speech(
             let waveform = match output.waveform() {
                 Some(w) => w,
                 None => {
-                    return GenerateSpeechResult {
+                    return Ok(GenerateSpeechResult {
                         task_id,
                         status: "failed".to_string(),
                         audio_path: None,
                         error: Some("生成结果为空".to_string()),
                         duration_ms: start.elapsed().as_millis(),
-                    };
+                    });
                 }
             };
 
             if let Err(e) = qwen3_tts_rs::audio::write_wav_file(
-                &output_path,
+                output_path.to_str().unwrap_or("output.wav"),
                 waveform,
                 output.sample_rate,
             ) {
-                return GenerateSpeechResult {
+                return Ok(GenerateSpeechResult {
                     task_id,
                     status: "failed".to_string(),
                     audio_path: None,
                     error: Some(format!("写入音频文件失败: {e}")),
                     duration_ms: start.elapsed().as_millis(),
-                };
+                });
             }
 
-            GenerateSpeechResult {
+            Ok(GenerateSpeechResult {
                 task_id,
                 status: "success".to_string(),
                 audio_path: Some(output_path.to_string_lossy().to_string()),
                 error: None,
                 duration_ms: start.elapsed().as_millis(),
-            }
+            })
         }
-        Err(e) => GenerateSpeechResult {
+        Err(e) => Ok(GenerateSpeechResult {
             task_id,
             status: "failed".to_string(),
             audio_path: None,
             error: Some(format!("合成失败: {e}")),
             duration_ms: start.elapsed().as_millis(),
-        },
+        }),
     }
 }
 
@@ -303,7 +302,7 @@ pub async fn generate_speech(
 pub async fn clone_voice(
     payload: CloneVoicePayload,
     state: State<'_, AppState>,
-) -> CloneVoiceResult {
+) -> Result<CloneVoiceResult, String> {
     let profile_dir = state.directories.voices.join("profiles");
     std::fs::create_dir_all(&profile_dir).ok();
 
@@ -317,10 +316,10 @@ pub async fn clone_voice(
 
     // Copy reference audio to profiles dir
     if let Err(e) = std::fs::copy(&src, &target_audio) {
-        return CloneVoiceResult {
+        return Ok(CloneVoiceResult {
             voice_profile_id,
             status: format!("failed: {e}"),
-        };
+        });
     }
 
     // Save profile metadata
@@ -341,10 +340,10 @@ pub async fn clone_voice(
     )
     .ok();
 
-    CloneVoiceResult {
+    Ok(CloneVoiceResult {
         voice_profile_id,
         status: "success".to_string(),
-    }
+    })
 }
 
 #[tauri::command]

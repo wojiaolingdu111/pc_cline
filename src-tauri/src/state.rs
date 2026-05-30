@@ -2,7 +2,7 @@ use anyhow::Result;
 use reqwest::Client;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::file_manager::AppDirectories;
 use crate::license::LicenseManager;
