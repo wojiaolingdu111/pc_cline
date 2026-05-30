@@ -99,7 +99,9 @@
       "Bash(git config *)",
       "Bash(grep *)",
       "Bash(git ls-remote *)",
-      "Bash(mkdir *)"
+      "Bash(mkdir *)",
+      "Agent(Explore)",
+      "Bash(git show *)"
     ]
   },
   "$version": 4
