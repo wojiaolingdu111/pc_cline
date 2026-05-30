@@ -11,7 +11,6 @@ permissions:
 
 env:
     QSHELL_VER: v2.19.7
-    APPIMAGE_EXTRACT_AND_RUN: 1
 
 jobs:
     build:
@@ -20,7 +19,7 @@ jobs:
             matrix:
                 include:
                     - os: ubuntu-latest
-                      bundles: deb,rpm,appimage
+                      bundles: deb,rpm
                       qshell_asset: qshell-v2.19.7-linux-amd64.tar.gz
                       qshell_bin: qshell
                       platform: linux
@@ -122,9 +121,6 @@ jobs:
                       done
                       for f in src-tauri/target/release/bundle/rpm/*.rpm; do
                         [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/linux/$(basename "$f")" "pc-clinet/latest/linux/AI_ToReder_linux.rpm"
-                      done
-                      for f in src-tauri/target/release/bundle/appimage/*.AppImage; do
-                        [ -f "$f" ] && upload "$f" "pc-clinet/${TAG}/linux/$(basename "$f")" "pc-clinet/latest/linux/AI_ToReder_linux.AppImage"
                       done
                       ;;
                     Windows)
