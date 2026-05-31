@@ -16,7 +16,7 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             #[cfg(target_os = "windows")]
-            add_resource_dir_to_dll_search(app);
+            ensure_libtorch_dlls_searchable(app);
 
             let state = build_app_state(app.handle())?;
             app.manage(state);
@@ -36,21 +36,25 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-/// On Windows, add the resource directory to the DLL search path so that
-/// LibTorch DLLs bundled via `bundle.resources` can be found at runtime.
+/// Ensure LibTorch DLLs (c10.dll, torch_cpu.dll, …) are findable at runtime.
+///
+/// On Windows, DLL search is notoriously brittle after `SetDefaultDllDirectories`.
+/// This function uses a belt-and-suspenders approach:
+///   1. `SetDefaultDllDirectories` + `AddDllDirectory` — clean modern approach.
+///   2. `PATH` environment variable — guaranteed fallback that works even when
+///      security software blocks `AddDllDirectory`.
 #[cfg(target_os = "windows")]
-fn add_resource_dir_to_dll_search(app: &tauri::App) {
+fn ensure_libtorch_dlls_searchable(app: &tauri::App) {
     use std::os::windows::ffi::OsStrExt;
 
-    // Build a list of directories to search for DLLs
+    // ---------- collect candidate directories ----------
     let mut dirs: Vec<std::path::PathBuf> = Vec::new();
 
-    // 1. Resource directory (where Tauri places bundled resources)
+    // App resource directory (where Tauri places bundled resources)
     if let Ok(d) = app.path().resource_dir() {
         dirs.push(d);
     }
-
-    // 2. Executable directory (for dev mode / alternative placement)
+    // Executable directory (dev mode, or where DLLs land with ".." target)
     if let Ok(exe) = std::env::current_exe() {
         if let Some(parent) = exe.parent() {
             dirs.push(parent.to_path_buf());
@@ -61,16 +65,22 @@ fn add_resource_dir_to_dll_search(app: &tauri::App) {
         return;
     }
 
+    // ---------- method 1: AddDllDirectory ----------
     extern "system" {
         fn SetDefaultDllDirectories(flags: u32) -> i32;
         fn AddDllDirectory(lpPathName: *const u16) -> *mut std::ffi::c_void;
     }
 
+    const LOAD_LIBRARY_SEARCH_APPLICATION_DIR: u32 = 0x0000_0200;
     const LOAD_LIBRARY_SEARCH_DEFAULT_DIRS: u32 = 0x0000_1000;
     const LOAD_LIBRARY_SEARCH_USER_DIRS: u32 = 0x0000_0400;
 
     unsafe {
-        SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_USER_DIRS);
+        SetDefaultDllDirectories(
+            LOAD_LIBRARY_SEARCH_APPLICATION_DIR
+                | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS
+                | LOAD_LIBRARY_SEARCH_USER_DIRS,
+        );
     }
 
     for dir in &dirs {
@@ -82,11 +92,32 @@ fn add_resource_dir_to_dll_search(app: &tauri::App) {
         unsafe {
             let cookie = AddDllDirectory(wide.as_ptr());
             if cookie.is_null() {
-                eprintln!(
-                    "warning: AddDllDirectory failed for {}",
-                    dir.display()
-                );
+                eprintln!("[warn] AddDllDirectory failed for {}", dir.display());
+            } else {
+                eprintln!("[info] AddDllDirectory OK: {}", dir.display());
             }
         }
+    }
+
+    // ---------- method 2: PATH environment variable (guaranteed fallback) ----------
+    let paths_to_add: Vec<String> = dirs
+        .iter()
+        .filter_map(|d| d.to_str())
+        .map(|s| s.to_owned())
+        .collect();
+
+    if !paths_to_add.is_empty() {
+        let current_path = std::env::var("PATH").unwrap_or_default();
+        let mut parts: Vec<&str> = current_path.split(';').collect();
+
+        for p in &paths_to_add {
+            if !parts.contains(&p.as_str()) {
+                parts.insert(0, p);
+            }
+        }
+
+        let new_path = parts.join(";");
+        std::env::set_var("PATH", &new_path);
+        eprintln!("[info] PATH updated with LibTorch DLL directories");
     }
 }
