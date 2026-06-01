@@ -5,6 +5,24 @@ fn main() {
     // otherwise the resources glob validation in tauri.conf.json fails.
     ensure_libtorch_resources();
 
+    // On Windows + MSVC: use delay-load so torch_cpu.dll is NOT resolved at
+    // process startup, but lazily on first function call.  This gives
+    // `ensure_libtorch_dlls_searchable` in lib.rs (which runs in Tauri setup())
+    // time to register DLL search paths via AddDllDirectory / PATH.
+    //
+    // Without delay-load, the Windows loader resolves the import table at
+    // process startup — BEFORE any Rust code runs — and crashes immediately
+    // if the DLL is not in the exe directory.
+    #[cfg(all(target_os = "windows", target_env = "msvc"))]
+    {
+        println!("cargo:rustc-link-arg=-DELAYLOAD:torch_cpu.dll");
+        println!("cargo:rustc-link-arg=-DELAYLOAD:c10.dll");
+        println!("cargo:rustc-link-arg=-DELAYLOAD:torch.dll");
+        // libtorch_global_deps is loaded by torch_cpu.dll itself, not directly
+        // linked in the import table — no need to delay-load it.
+        println!("cargo:warning=delay-load enabled for LibTorch DLLs on Windows MSVC");
+    }
+
     tauri_build::build();
 }
 
@@ -84,41 +102,105 @@ fn copy_libs_to(lib_dir: &Path, dest_dir: &Path, ext: &str) {
 }
 
 fn find_libtorch_lib_dir(profile_dir: &Path) -> Option<PathBuf> {
-    // 1. Check LIBTORCH env var
+    // ---------- method 1: cargo metadata from torch-sys ----------
+    // torch-sys outputs `cargo:libtorch_lib=...` on Linux/macOS → DEP_TORCH_SYS_LIBTORCH_LIB.
+    // On Windows torch-sys does NOT emit this metadata, so this only helps non-Windows.
+    let dep_keys = [
+        "DEP_TORCH_SYS_LIBTORCH_LIB",
+        "DEP_TCH_LIBTORCH_LIB",
+        "DEP_TORCH_SYS_LIB_DIR",
+        "DEP_TORCH_SYS_LIB",
+        "DEP_TORCH_CXX11_LIBTORCH_LIB",
+    ];
+    for key in &dep_keys {
+        if let Ok(val) = std::env::var(key) {
+            let p = Path::new(&val);
+            if p.join(platform_libtorch_marker()).exists() {
+                println!("cargo:warning=find_libtorch: found via env {key}={val}");
+                return Some(p.to_path_buf());
+            }
+            // maybe val is the lib dir itself
+            let lib_dir = p.join("lib");
+            if libtorch_marker_exists(&lib_dir) {
+                println!("cargo:warning=find_libtorch: found via env {key}=.../lib");
+                return Some(lib_dir);
+            }
+        }
+    }
+
+    // ---------- method 2: LIBTORCH env var ----------
     if let Ok(libtorch) = std::env::var("LIBTORCH") {
         let lib_dir = Path::new(&libtorch).join("lib");
         if libtorch_marker_exists(&lib_dir) {
+            println!("cargo:warning=find_libtorch: found via LIBTORCH env var");
             return Some(lib_dir);
         }
     }
 
-    // 2. Search the cargo build directory for torch-sys output
+    // ---------- method 3: LIBTORCH_LIB env var ----------
+    if let Ok(libtorch_lib) = std::env::var("LIBTORCH_LIB") {
+        let p = Path::new(&libtorch_lib);
+        if p.join(platform_libtorch_marker()).exists() {
+            println!("cargo:warning=find_libtorch: found via LIBTORCH_LIB env var");
+            return Some(p.to_path_buf());
+        }
+    }
+
+    // ---------- method 4: Search cargo build directory for torch-sys output ----------
     let build_base = profile_dir.join("build");
     let entries = std::fs::read_dir(&build_base).ok()?;
     for entry in entries.flatten() {
         let name = entry.file_name();
-        if !name.to_string_lossy().starts_with("torch-sys-") {
+        let name_str = name.to_string_lossy();
+
+        // Check both torch-sys and tch build directories
+        let is_relevant = name_str.starts_with("torch-sys-") || name_str.starts_with("tch-");
+        if !is_relevant {
             continue;
         }
 
-        // torch-sys with download-libtorch extracts to out/libtorch/libtorch/lib/
-        let candidate = entry
-            .path()
-            .join("out")
-            .join("libtorch")
-            .join("libtorch")
-            .join("lib");
-        if libtorch_marker_exists(&candidate) {
-            return Some(candidate);
-        }
+        let entry_path = entry.path();
 
-        // Alternative: out/libtorch/lib/
-        let candidate2 = entry.path().join("out").join("libtorch").join("lib");
-        if libtorch_marker_exists(&candidate2) {
-            return Some(candidate2);
+        // Possible directory layouts:
+        //   torch-sys with download-libtorch:
+        //     out/libtorch/libtorch/lib/   (Linux/macOS/Windows)
+        //     out/libtorch/lib/            (alternative)
+        //   tch build output might also reference libtorch
+
+        for candidate in [
+            entry_path.join("out").join("libtorch").join("libtorch").join("lib"),
+            entry_path.join("out").join("libtorch").join("lib"),
+            // Also check flat in entry/out/
+            entry_path.join("out"),
+        ] {
+            if libtorch_marker_exists(&candidate) {
+                println!(
+                    "cargo:warning=find_libtorch: found via {} in {}",
+                    name_str,
+                    candidate.display()
+                );
+                return Some(candidate);
+            }
         }
     }
 
+    // ---------- method 5: check system-wide locations ----------
+    for sys_path in &[
+        "/usr/lib/libtorch.so",
+        "/usr/local/lib/libtorch.so",
+        "/usr/lib/x86_64-linux-gnu/libtorch.so",
+    ] {
+        let p = Path::new(sys_path);
+        if let Some(parent) = p.parent() {
+            // On Linux we look for the parent dir; torch_cpu should be there
+            if parent.join("libtorch_cpu.so").exists() {
+                println!("cargo:warning=find_libtorch: found at system {}", parent.display());
+                return Some(parent.to_path_buf());
+            }
+        }
+    }
+
+    println!("cargo:warning=find_libtorch: no libtorch directory found after all methods");
     None
 }
 

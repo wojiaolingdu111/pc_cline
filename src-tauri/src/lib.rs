@@ -38,68 +38,51 @@ pub fn run() {
 
 /// Ensure LibTorch DLLs (c10.dll, torch_cpu.dll, …) are findable at runtime.
 ///
-/// On Windows, DLL search is notoriously brittle after `SetDefaultDllDirectories`.
-/// This function uses a belt-and-suspenders approach:
-///   1. `SetDefaultDllDirectories` + `AddDllDirectory` — clean modern approach.
-///   2. `PATH` environment variable — guaranteed fallback that works even when
-///      security software blocks `AddDllDirectory`.
+/// On Windows, `torch_cpu.dll` and `c10.dll` are loaded at **process startup**
+/// (via import table from `torch-sys`), so NO runtime search-path trick works
+/// for the initial load. Those DLLs MUST already be in the exe directory
+/// (placed by `build.rs` for dev mode, or by the MSI installer for production).
+///
+/// What this function CAN still help with:
+///   1. DLLs that LibTorch itself loads at runtime (plugins, backends).
+///   2. The `PATH` update helps child processes (e.g. ffmpeg sidecars).
+///
+/// Why this works with `DELAYLOAD` (added by `build.rs`):
+///   The MSVC delay-load helper calls `LoadLibraryEx` which follows the
+///   standard DLL search path (exe dir → CWD → System32 → Windows → PATH).
+///   By modifying PATH to include both the exe dir AND the resource dir,
+///   the DLLs become findable regardless of where the MSI installer places
+///   them.
+///
+/// We deliberately do NOT call `SetDefaultDllDirectories` because:
+///   - It removes PATH from the search order.
+///   - Without PATH, our fallback would be ineffective.
+///   - The exe dir is already searched first, so security is adequate.
 #[cfg(target_os = "windows")]
 fn ensure_libtorch_dlls_searchable(app: &tauri::App) {
-    use std::os::windows::ffi::OsStrExt;
-
     // ---------- collect candidate directories ----------
     let mut dirs: Vec<std::path::PathBuf> = Vec::new();
 
-    // App resource directory (where Tauri places bundled resources)
-    if let Ok(d) = app.path().resource_dir() {
-        dirs.push(d);
-    }
-    // Executable directory (dev mode, or where DLLs land with ".." target)
+    // Executable directory — the most reliable location
     if let Ok(exe) = std::env::current_exe() {
         if let Some(parent) = exe.parent() {
             dirs.push(parent.to_path_buf());
         }
     }
 
+    // App resource directory (where Tauri places bundled resources)
+    if let Ok(d) = app.path().resource_dir() {
+        dirs.push(d);
+    }
+
     if dirs.is_empty() {
         return;
     }
 
-    // ---------- method 1: AddDllDirectory ----------
-    extern "system" {
-        fn SetDefaultDllDirectories(flags: u32) -> i32;
-        fn AddDllDirectory(lpPathName: *const u16) -> *mut std::ffi::c_void;
-    }
-
-    const LOAD_LIBRARY_SEARCH_APPLICATION_DIR: u32 = 0x0000_0200;
-    const LOAD_LIBRARY_SEARCH_DEFAULT_DIRS: u32 = 0x0000_1000;
-    const LOAD_LIBRARY_SEARCH_USER_DIRS: u32 = 0x0000_0400;
-
-    unsafe {
-        SetDefaultDllDirectories(
-            LOAD_LIBRARY_SEARCH_APPLICATION_DIR
-                | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS
-                | LOAD_LIBRARY_SEARCH_USER_DIRS,
-        );
-    }
-
-    for dir in &dirs {
-        let wide: Vec<u16> = dir
-            .as_os_str()
-            .encode_wide()
-            .chain(std::iter::once(0))
-            .collect();
-        unsafe {
-            let cookie = AddDllDirectory(wide.as_ptr());
-            if cookie.is_null() {
-                eprintln!("[warn] AddDllDirectory failed for {}", dir.display());
-            } else {
-                eprintln!("[info] AddDllDirectory OK: {}", dir.display());
-            }
-        }
-    }
-
-    // ---------- method 2: PATH environment variable (guaranteed fallback) ----------
+    // ---------- method: PATH environment variable ----------
+    // Prepend our directories to PATH.  The standard LoadLibraryEx search
+    // includes PATH, so the delay-load helper (used by DELAYLOAD) will
+    // find the DLLs here.
     let paths_to_add: Vec<String> = dirs
         .iter()
         .filter_map(|d| d.to_str())
@@ -119,5 +102,40 @@ fn ensure_libtorch_dlls_searchable(app: &tauri::App) {
         let new_path = parts.join(";");
         std::env::set_var("PATH", &new_path);
         eprintln!("[info] PATH updated with LibTorch DLL directories");
+    }
+
+    // ---------- emergency copy to exe dir ----------
+    // If resources are in a separate directory (production install), copy
+    // DLLs from resource dir to exe dir.  With DELAYLOAD the DLL hasn't
+    // been loaded yet, so the copy happens before the first torch call,
+    // AND subsequent launches find them directly in the exe dir.
+    if dirs.len() >= 2 {
+        let exe_dir = &dirs[0];
+        let res_dir = &dirs[1];
+        if exe_dir != res_dir && res_dir.exists() {
+            if let Ok(entries) = std::fs::read_dir(res_dir) {
+                let mut copied = false;
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.extension().map_or(false, |e| e == "dll") {
+                        let dest = exe_dir.join(path.file_name().unwrap());
+                        if !dest.exists() && std::fs::copy(&path, &dest).is_ok() {
+                            eprintln!("[info] Copied {} to exe dir", dest.display());
+                            copied = true;
+                        }
+                    }
+                }
+                if copied {
+                    let new_path = format!(
+                        "{}{}{}",
+                        exe_dir.display(),
+                        ";",
+                        std::env::var("PATH").unwrap_or_default()
+                    );
+                    std::env::set_var("PATH", &new_path);
+                    eprintln!("[info] PATH re-updated after DLL copy");
+                }
+            }
+        }
     }
 }
