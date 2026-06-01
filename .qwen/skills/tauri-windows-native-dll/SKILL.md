@@ -1,6 +1,6 @@
 ---
 name: tauri-windows-native-dll
-description: 在 Tauri v2 Windows 打包中捆绑原生 DLL（如 LibTorch/tch-rs 的 torch_cpu.dll），含 DELAYLOAD + 三层兜底
+description: 在 Tauri v2 Windows 打包中捆绑原生 DLL（如 LibTorch/tch-rs 的 torch_cpu.dll），三层兜底（注意 DELAYLOAD 因 LNK1194 不可用）
 source: auto-skill
 extracted_at: '2026-06-01T07:01:19.476Z'
 ---
@@ -17,32 +17,19 @@ extracted_at: '2026-06-01T07:01:19.476Z'
 **根因二：`SetDefaultDllDirectories` 移除 PATH 搜索**
 调用 `SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_APPLICATION_DIR | ...)` 后，Windows 只搜索 exe 目录 + 系统目录 + `AddDllDirectory` 注册的目录，**PATH 被移出搜索列表**。后续修改 PATH 对当前进程的 `LoadLibrary` 无效。
 
-## 解决方案：DELAYLOAD + 三层兜底
+## 解决方案：三层兜底（DELAYLOAD 因 LNK1194 不可用）
 
-### 核心思路
+### ⚠ DELAYLOAD 不可用
 
-用 MSVC 的 `/DELAYLOAD` 标志把 DLL 从进程启动加载改为**延迟加载**（首次调用 torch 函数时触发）。这样 `setup()` 就有时间设置搜索路径。
+MSVC 的 `/DELAYLOAD` 无法用于 LibTorch DLL，因为 `torch_cpu.dll` 和 `c10.dll` **导出 data symbol**（全局变量/常量），而 delay-load 机制只支持函数导入。链接时会报：
 
-### 0. build.rs — DELAYLOAD（核心修复）
-
-在 `build.rs` 的 `main()` 中，在 `tauri_build::build()` 之前添加：
-
-```rust
-// 仅 Windows MSVC：延迟加载 LibTorch DLL，避免 process startup crash
-#[cfg(all(target_os = "windows", target_env = "msvc"))]
-{
-    println!("cargo:rustc-link-arg=-DELAYLOAD:torch_cpu.dll");
-    println!("cargo:rustc-link-arg=-DELAYLOAD:c10.dll");
-    println!("cargo:rustc-link-arg=-DELAYLOAD:torch.dll");
-    println!("cargo:warning=delay-load enabled for LibTorch DLLs on Windows MSVC");
-}
+```
+LNK1194: cannot delay-load 'torch_cpu.dll' due to import of data symbol '...'
 ```
 
-**为什么要 delay 这三个 DLL？**
-- `torch-sys` 的 `build.rs` 输出 `cargo:rustc-link-lib=torch_cpu` / `c10` / `torch`，这三者直接出现在导入表
-- `torch_global_deps` 是被 `torch_cpu.dll` 自己加载的，不需要 delay
+所以必须走另一条路：确保 DLL 在进程启动前就位于标准搜索路径中。
 
-### 1. build.rs — 构建时复制 DLL（增强版 find_libtorch_lib_dir）
+### build.rs — 构建时复制 DLL（核心）
 
 `torch-sys` 的 `build.rs` 会把 LibTorch 下载到 `target/<profile>/build/torch-sys-{hash}/out/libtorch/libtorch/lib/`。我们需要把 DLL 从那里复制到两个目标：
 - **`target/<profile>/`** — 开发模式（`tauri dev`），exe 同目录

@@ -5,23 +5,16 @@ fn main() {
     // otherwise the resources glob validation in tauri.conf.json fails.
     ensure_libtorch_resources();
 
-    // On Windows + MSVC: use delay-load so torch_cpu.dll is NOT resolved at
-    // process startup, but lazily on first function call.  This gives
-    // `ensure_libtorch_dlls_searchable` in lib.rs (which runs in Tauri setup())
-    // time to register DLL search paths via AddDllDirectory / PATH.
+    // NOTE: DELAYLOAD was attempted here but REJECTED by the linker.
+    // LNK1194: MSVC's delay-load cannot handle DLLs that export data symbols
+    // (global variables / constants).  torch_cpu.dll and c10.dll export such
+    // symbols, so /DELAYLOAD causes a fatal link error.
     //
-    // Without delay-load, the Windows loader resolves the import table at
-    // process startup — BEFORE any Rust code runs — and crashes immediately
-    // if the DLL is not in the exe directory.
-    #[cfg(all(target_os = "windows", target_env = "msvc"))]
-    {
-        println!("cargo:rustc-link-arg=-DELAYLOAD:torch_cpu.dll");
-        println!("cargo:rustc-link-arg=-DELAYLOAD:c10.dll");
-        println!("cargo:rustc-link-arg=-DELAYLOAD:torch.dll");
-        // libtorch_global_deps is loaded by torch_cpu.dll itself, not directly
-        // linked in the import table — no need to delay-load it.
-        println!("cargo:warning=delay-load enabled for LibTorch DLLs on Windows MSVC");
-    }
+    // Instead, the build.rs places the DLLs next to the exe (dev mode) and
+    // into `libtorch-dlls/` for Tauri bundling (production).  At startup
+    // the Windows loader finds them via the standard exe-directory search.
+    // The lib.rs `ensure_libtorch_dlls_searchable` serves as a secondary
+    // fallback by modifying PATH and copying DLLs on first launch.
 
     tauri_build::build();
 }

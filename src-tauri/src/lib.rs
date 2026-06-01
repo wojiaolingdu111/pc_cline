@@ -39,25 +39,18 @@ pub fn run() {
 /// Ensure LibTorch DLLs (c10.dll, torch_cpu.dll, …) are findable at runtime.
 ///
 /// On Windows, `torch_cpu.dll` and `c10.dll` are loaded at **process startup**
-/// (via import table from `torch-sys`), so NO runtime search-path trick works
-/// for the initial load. Those DLLs MUST already be in the exe directory
-/// (placed by `build.rs` for dev mode, or by the MSI installer for production).
+/// via the import table (from `torch-sys`). They MUST be in the standard
+/// Windows DLL search path before `main()` — which means either:
+///   - **Dev mode**: the exe directory (`target/<profile>/`), where
+///     `build.rs` copies them.
+///   - **Production mode**: the install directory, where the MSI/NSIS
+///     installer (via `bundle.resources` in `tauri.conf.json`) places them.
 ///
-/// What this function CAN still help with:
-///   1. DLLs that LibTorch itself loads at runtime (plugins, backends).
-///   2. The `PATH` update helps child processes (e.g. ffmpeg sidecars).
-///
-/// Why this works with `DELAYLOAD` (added by `build.rs`):
-///   The MSVC delay-load helper calls `LoadLibraryEx` which follows the
-///   standard DLL search path (exe dir → CWD → System32 → Windows → PATH).
-///   By modifying PATH to include both the exe dir AND the resource dir,
-///   the DLLs become findable regardless of where the MSI installer places
-///   them.
-///
-/// We deliberately do NOT call `SetDefaultDllDirectories` because:
-///   - It removes PATH from the search order.
-///   - Without PATH, our fallback would be ineffective.
-///   - The exe dir is already searched first, so security is adequate.
+/// What this function adds as a safety net:
+///   1. Prepend exe + resource dirs to `PATH` — helps if the DLLs happen
+///      to be somewhere else (e.g. a manual install).
+///   2. Emergency copy — if resource_dir ≠ exe_dir, copy DLLs from
+///      resource_dir to exe_dir.  Next launch will find them directly.
 #[cfg(target_os = "windows")]
 fn ensure_libtorch_dlls_searchable(app: &tauri::App) {
     // ---------- collect candidate directories ----------
