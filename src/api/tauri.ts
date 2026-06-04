@@ -55,6 +55,7 @@ export interface LicenseInfo {
     trial_days_total: number;
     trial_days_left: number;
     license_key: string | null;
+    is_root: boolean;
     message: string;
 }
 
@@ -204,6 +205,7 @@ export async function getLicenseStatus(): Promise<LicenseInfo> {
             trial_days_total: 7,
             trial_days_left: 7,
             license_key: null,
+            is_root: false,
             message: "浏览器预览模式",
         };
     }

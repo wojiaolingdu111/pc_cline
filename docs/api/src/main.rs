@@ -59,9 +59,13 @@ fn init_db(db_path: &str) -> rusqlite::Result<Connection> {
             activation_count INTEGER DEFAULT 0,
             machine_id TEXT,
             activated_at INTEGER,
-            expires_at INTEGER
+            expires_at INTEGER,
+            is_root INTEGER DEFAULT 0
         )",
     )?;
+    conn.execute_batch(
+        "ALTER TABLE licenses ADD COLUMN is_root INTEGER DEFAULT 0",
+    ).ok();
     Ok(conn)
 }
 
@@ -70,7 +74,8 @@ fn query_license(
     code: &str,
 ) -> rusqlite::Result<Option<serde_json::Value>> {
     let mut stmt = db.prepare(
-        "SELECT code, max_activations, activation_count, machine_id, activated_at, expires_at
+        "SELECT code, max_activations, activation_count, machine_id, activated_at, expires_at,
+                COALESCE(is_root, 0)
          FROM licenses WHERE code = ?",
     )?;
     let mut rows = stmt.query([code])?;
@@ -82,6 +87,7 @@ fn query_license(
             "machine_id": row.get::<_, Option<String>>(3)?,
             "activated_at": row.get::<_, Option<i64>>(4)?,
             "expires_at": row.get::<_, Option<i64>>(5)?,
+            "is_root": row.get::<_, bool>(6)?,
         }))),
         None => Ok(None),
     }
@@ -97,7 +103,7 @@ async fn handle_list(
 
     let db = db.lock().unwrap();
     let mut stmt = db
-        .prepare("SELECT code, max_activations, activation_count, machine_id, activated_at, expires_at FROM licenses")
+        .prepare("SELECT code, max_activations, activation_count, machine_id, activated_at, expires_at, COALESCE(is_root, 0) FROM licenses")
         .map_err(|_| json_err(StatusCode::INTERNAL_SERVER_ERROR, "服务器内部错误"))?;
 
     let rows = stmt
@@ -109,6 +115,7 @@ async fn handle_list(
                 "machine_id": row.get::<_, Option<String>>(3)?,
                 "activated_at": row.get::<_, Option<i64>>(4)?,
                 "expires_at": row.get::<_, Option<i64>>(5)?,
+                "is_root": row.get::<_, bool>(6)?,
             }))
         })
         .map_err(|_| json_err(StatusCode::INTERNAL_SERVER_ERROR, "服务器内部错误"))?;
@@ -128,6 +135,7 @@ struct AddBody {
     code: String,
     max_activations: Option<i32>,
     expires_in_days: Option<i64>,
+    is_root: Option<bool>,
 }
 
 async fn handle_add(
@@ -151,10 +159,11 @@ async fn handle_add(
 
     let max_acts = body.max_activations.unwrap_or(1).max(1);
     let expires_at = body.expires_in_days.filter(|d| *d > 0).map(|d| now_ms() + d * 86400_000);
+    let is_root = body.is_root.unwrap_or(false);
 
     db.execute(
-        "INSERT INTO licenses (code, max_activations, expires_at) VALUES (?1, ?2, ?3)",
-        rusqlite::params![body.code, max_acts, expires_at],
+        "INSERT INTO licenses (code, max_activations, expires_at, is_root) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![body.code, max_acts, expires_at, is_root],
     )
     .map_err(|_| json_err(StatusCode::INTERNAL_SERVER_ERROR, "服务器内部错误"))?;
 
@@ -239,9 +248,13 @@ fn verify_record(
     record: &serde_json::Value,
     machine_id: Option<&str>,
 ) -> ApiResult {
-    if let Some(exp) = record["expires_at"].as_i64() {
-        if now_ms() > exp {
-            return Ok(Json(serde_json::json!({"valid": false, "message": "授权码已过期"})));
+    let is_root = record["is_root"].as_bool().unwrap_or(false);
+
+    if !is_root {
+        if let Some(exp) = record["expires_at"].as_i64() {
+            if now_ms() > exp {
+                return Ok(Json(serde_json::json!({"valid": false, "message": "授权码已过期"})));
+            }
         }
     }
 
@@ -255,8 +268,9 @@ fn verify_record(
 
     Ok(Json(serde_json::json!({
         "valid": true,
-        "message": "授权码有效",
+        "message": if is_root { "永久授权" } else { "授权码有效" },
         "expires_at": record["expires_at"],
+        "is_root": is_root,
     })))
 }
 
@@ -299,23 +313,38 @@ async fn handle_activate(
         None => return Ok(Json(serde_json::json!({"valid": false, "message": "授权码无效"}))),
     };
 
-    if let Some(exp) = record["expires_at"].as_i64() {
-        if now_ms() > exp {
-            return Ok(Json(serde_json::json!({"valid": false, "message": "授权码已过期"})));
+    let is_root = record["is_root"].as_bool().unwrap_or(false);
+
+    if !is_root {
+        if let Some(exp) = record["expires_at"].as_i64() {
+            if now_ms() > exp {
+                return Ok(Json(serde_json::json!({"valid": false, "message": "授权码已过期"})));
+            }
         }
     }
 
     if let Some(mid) = record["machine_id"].as_str() {
         if mid != machine_id {
+            if is_root {
+                let now = now_ms();
+                db.execute(
+                    "UPDATE licenses SET machine_id = ?1, activated_at = ?2 WHERE code = ?3",
+                    rusqlite::params![machine_id, now, body.license_key],
+                )
+                .map_err(|_| json_err(StatusCode::INTERNAL_SERVER_ERROR, "服务器内部错误"))?;
+                return Ok(Json(serde_json::json!({
+                    "valid": true, "message": "激活成功", "is_root": true
+                })));
+            }
             return Ok(Json(serde_json::json!({"valid": false, "message": "授权码已被其他设备绑定"})));
         }
-        // already activated on this machine
         return Ok(Json(serde_json::json!({
-            "valid": true, "message": "激活成功", "expires_at": record["expires_at"]
+            "valid": true, "message": "激活成功",
+            "expires_at": record["expires_at"], "is_root": is_root
         })));
     }
 
-    if record["activation_count"].as_i64().unwrap_or(0) >= record["max_activations"].as_i64().unwrap_or(1) {
+    if !is_root && record["activation_count"].as_i64().unwrap_or(0) >= record["max_activations"].as_i64().unwrap_or(1) {
         return Ok(Json(serde_json::json!({"valid": false, "message": "授权码激活次数已用完"})));
     }
 
@@ -333,7 +362,8 @@ async fn handle_activate(
     }
 
     Ok(Json(serde_json::json!({
-        "valid": true, "message": "激活成功", "expires_at": record["expires_at"]
+        "valid": true, "message": "激活成功",
+        "expires_at": record["expires_at"], "is_root": is_root
     })))
 }
 

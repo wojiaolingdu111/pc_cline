@@ -31,6 +31,7 @@ const serviceBadge = computed(() => {
 
 const licenseBadge = computed(() => {
     if (!licenseInfo.value) return "";
+    if (licenseInfo.value.is_root) return "永久授权";
     if (licenseInfo.value.status === "Active") return "已激活";
     if (licenseInfo.value.status === "Expired") return "试用过期";
     return `试用 ${licenseInfo.value.trial_days_left} 天`;
@@ -38,6 +39,7 @@ const licenseBadge = computed(() => {
 
 const licenseBadgeClass = computed(() => {
     if (!licenseInfo.value) return "";
+    if (licenseInfo.value.is_root) return "license-root";
     if (licenseInfo.value.status === "Active") return "license-active";
     if (licenseInfo.value.status === "Expired") return "license-expired";
     return "license-trial";
@@ -230,6 +232,9 @@ h1 {
 }
 .license-active {
     background: #166534;
+}
+.license-root {
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
 }
 .license-expired {
     background: #8a1c28;

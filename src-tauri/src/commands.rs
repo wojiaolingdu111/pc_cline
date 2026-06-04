@@ -416,11 +416,12 @@ pub async fn activate_license(
         .map_err(|e| format!("授权服务器响应异常: {}", e))?;
 
     if result.get("valid").and_then(|v| v.as_bool()).unwrap_or(false) {
+        let is_root = result.get("is_root").and_then(|v| v.as_bool()).unwrap_or(false);
         state
             .license
             .lock()
             .unwrap()
-            .set_license_key(key)
+            .set_license_key(key, is_root)
             .map_err(|e| format!("保存授权信息失败: {}", e))?;
         Ok(state.license.lock().unwrap().get_info())
     } else {

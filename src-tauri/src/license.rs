@@ -20,6 +20,7 @@ pub struct LicenseInfo {
     pub trial_days_total: u32,
     pub trial_days_left: i64,
     pub license_key: Option<String>,
+    pub is_root: bool,
     pub message: String,
 }
 
@@ -28,6 +29,8 @@ struct LicenseStore {
     trial_start_ms: u64,
     license_key: Option<String>,
     machine_id: String,
+    #[serde(default)]
+    is_root: bool,
 }
 
 pub struct LicenseManager {
@@ -81,17 +84,29 @@ impl LicenseManager {
                     trial_days_total: TRIAL_DAYS as u32,
                     trial_days_left: TRIAL_DAYS as i64,
                     license_key: None,
+                    is_root: false,
                     message: format!("试用期还剩 {} 天", TRIAL_DAYS),
                 }
             }
         };
 
         if store.license_key.is_some() {
+            if store.is_root {
+                return LicenseInfo {
+                    status: LicenseStatus::Active,
+                    trial_days_total: TRIAL_DAYS as u32,
+                    trial_days_left: 0,
+                    license_key: store.license_key.clone(),
+                    is_root: true,
+                    message: "永久授权".to_string(),
+                };
+            }
             return LicenseInfo {
                 status: LicenseStatus::Active,
                 trial_days_total: TRIAL_DAYS as u32,
                 trial_days_left: 0,
                 license_key: store.license_key.clone(),
+                is_root: false,
                 message: "已激活正版授权".to_string(),
             };
         }
@@ -105,6 +120,7 @@ impl LicenseManager {
                 trial_days_total: TRIAL_DAYS as u32,
                 trial_days_left: days_left,
                 license_key: None,
+                is_root: false,
                 message: format!("试用期还剩 {} 天", days_left),
             }
         } else {
@@ -113,17 +129,19 @@ impl LicenseManager {
                 trial_days_total: TRIAL_DAYS as u32,
                 trial_days_left: 0,
                 license_key: None,
+                is_root: false,
                 message: "试用已过期，请购买授权激活".to_string(),
             }
         }
     }
 
-    pub fn set_license_key(&mut self, key: String) -> Result<()> {
+    pub fn set_license_key(&mut self, key: String, is_root: bool) -> Result<()> {
         let store = self
             .store
             .as_mut()
             .ok_or_else(|| anyhow::anyhow!("license store not initialized"))?;
         store.license_key = Some(key);
+        store.is_root = is_root;
         let json = serde_json::to_string_pretty(&store)?;
         std::fs::write(&self.path, json)?;
         Ok(())

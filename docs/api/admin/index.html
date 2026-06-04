@@ -351,6 +351,10 @@
                 background: var(--info-light);
                 color: #0369a1;
             }
+            .badge-root {
+                background: linear-gradient(135deg, #ede9fe, #f3e8ff);
+                color: #6d28d9;
+            }
             .badge-dot {
                 width: 6px;
                 height: 6px;
@@ -367,6 +371,9 @@
             }
             .badge-dot.blue {
                 background: #3b82f6;
+            }
+            .badge-dot.purple {
+                background: #7c3aed;
             }
 
             .row-actions {
@@ -731,12 +738,12 @@
                                     class="cell-muted"
                                     style="font-size: 0.85rem"
                                 >
-                                    {{ k.expires_at ? formatDate(k.expires_at) :
-                                    '永不过期' }}
+                                    {{ k.is_root ? '♾️ 永久' : (k.expires_at ? formatDate(k.expires_at) :
+                                    '永不过期') }}
                                 </td>
                                 <td>
                                     <div class="row-actions">
-                                        <button @click="setExpire(k.code)">
+                                        <button v-if="!k.is_root" @click="setExpire(k.code)">
                                             设过期
                                         </button>
                                         <button
@@ -788,6 +795,7 @@
                                 type="number"
                                 min="1"
                                 placeholder="1"
+                                :disabled="newIsRoot"
                             />
                         </div>
                         <div class="form-group">
@@ -798,8 +806,15 @@
                                 type="number"
                                 min="0"
                                 placeholder="0 = 永久"
+                                :disabled="newIsRoot"
                             />
                         </div>
+                    </div>
+                    <div class="form-group">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                            <input type="checkbox" v-model="newIsRoot" style="width:auto;accent-color:var(--accent)" />
+                            <span>Root 授权（永久有效，不限设备）</span>
+                        </label>
                     </div>
                     <div v-if="addError" class="login-error">
                         <span>⚠️</span> {{ addError }}
@@ -882,6 +897,7 @@
                         newCode: "",
                         newMax: 1,
                         newDays: 0,
+                        newIsRoot: false,
                         addError: "",
                         expireTarget: null,
                         expireDays: 30,
@@ -990,6 +1006,7 @@
                                     code,
                                     max_activations: this.newMax,
                                     expires_in_days: this.newDays || undefined,
+                                    is_root: this.newIsRoot || undefined,
                                 }),
                             });
                             if (!r.ok) {
@@ -1000,6 +1017,7 @@
                             this.newCode = "";
                             this.newMax = 1;
                             this.newDays = 0;
+                            this.newIsRoot = false;
                             this.showToast("✅ 已添加 " + code);
                             await this.load();
                         } catch (e) {
@@ -1057,6 +1075,7 @@
                     },
 
                     statusClass(k) {
+                        if (k.is_root) return "badge-root";
                         if (k.expires_at && Date.now() > k.expires_at)
                             return "badge-expired";
                         if (k.machine_id) return "badge-used";
@@ -1064,6 +1083,7 @@
                     },
 
                     statusDot(k) {
+                        if (k.is_root) return "purple";
                         if (k.expires_at && Date.now() > k.expires_at)
                             return "red";
                         if (k.machine_id) return "green";
@@ -1071,6 +1091,7 @@
                     },
 
                     statusText(k) {
+                        if (k.is_root) return "Root 永久";
                         if (k.expires_at && Date.now() > k.expires_at)
                             return "已过期";
                         if (k.machine_id) return "已激活";
